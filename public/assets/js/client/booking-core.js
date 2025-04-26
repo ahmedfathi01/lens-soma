@@ -1,0 +1,581 @@
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure proper data parsing with error handling
+    try {
+        // Store all data with proper JSON encoding
+        const servicesData = document.getElementById('services-data').value;
+        const packagesData = document.getElementById('packages-data').value;
+        const addonsData = document.getElementById('addons-data').value;
+        const bookingsData = document.getElementById('bookings-data').value;
+
+        const allServices = servicesData ? JSON.parse(servicesData) : [];
+        const allPackages = packagesData ? JSON.parse(packagesData) : [];
+        const allAddons = addonsData ? JSON.parse(addonsData) : [];
+        const currentBookings = bookingsData ? JSON.parse(bookingsData) : [];
+
+        // Store old session time if available
+        const oldSessionTimeElement = document.getElementById('old-session-time');
+        const oldSessionTime = oldSessionTimeElement ? oldSessionTimeElement.value : '';
+
+        // Get old package id from hidden input
+        const oldPackageIdElement = document.getElementById('old-package-id');
+        const oldPackageId = oldPackageIdElement ? oldPackageIdElement.value : 0;
+
+        // Fix addon price display in HTML
+        document.querySelectorAll('.badge.bg-primary').forEach(badge => {
+            if (badge.textContent.includes('$')) {
+                // Replace ${addon.price} with actual number + ريال
+                const addonId = badge.closest('.form-check').querySelector('input[type="checkbox"]').value;
+                const addon = allAddons.find(a => a.id == addonId);
+                if (addon) {
+                    badge.textContent = `${addon.price} ريال`;
+                }
+            }
+        });
+
+        // Get DOM elements
+        const serviceSelect = document.querySelector('select[name="service_id"]');
+        const packagesContainer = document.querySelector('.row:has(.package-card)');
+        const addonsSection = document.getElementById('addons-section');
+        const sessionDateInput = document.querySelector('input[name="session_date"]');
+
+        // Hide packages and addons initially if no service is selected
+        if (!serviceSelect.value) {
+            packagesContainer.style.display = 'none';
+            addonsSection.style.display = 'none';
+        } else {
+            packagesContainer.style.display = 'flex';
+        }
+
+        function updateAvailableTimes(packageDuration) {
+            const sessionTimeSelect = document.getElementById('sessionTime');
+            const timeNote = document.getElementById('timeNote');
+            const selectedPackageRadio = document.querySelector('.package-select:checked');
+            const selectedServiceId = document.querySelector('select[name="service_id"]').value;
+
+            // التحقق من وجود جميع العناصر المطلوبة
+            if (!sessionTimeSelect || !sessionDateInput || !timeNote || !selectedPackageRadio || !selectedServiceId) {
+                console.error('Required elements not found');
+                return;
+            }
+
+            // التحقق من وجود قيم صالحة
+            if (!packageDuration || !sessionDateInput.value || !selectedPackageRadio.value) {
+                sessionTimeSelect.disabled = true;
+                sessionTimeSelect.innerHTML = '<option value="">يرجى اختيار الباقة والتاريخ أولاً</option>';
+                timeNote.innerHTML = `
+                    <i class="fas fa-info-circle"></i>
+                    يرجى اختيار الباقة والتاريخ أولاً
+                `;
+                return;
+            }
+
+            // عرض حالة التحميل
+            sessionTimeSelect.disabled = true;
+            sessionTimeSelect.innerHTML = '<option value="">جاري تحميل المواعيد المتاحة...</option>';
+            timeNote.innerHTML = `
+                <i class="fas fa-spinner fa-spin"></i>
+                جاري التحقق من المواعيد المتاحة...
+            `;
+
+            // تنسيق التاريخ
+            const formattedDate = sessionDateInput.value.split('T')[0];
+
+            // التحقق من وجود CSRF token
+            const tokenElement = document.querySelector('meta[name="csrf-token"]');
+            if (!tokenElement) {
+                console.error('CSRF token not found');
+                timeNote.innerHTML = `
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+                    حدث خطأ في النظام. يرجى تحديث الصفحة والمحاولة مرة أخرى
+                `;
+                return;
+            }
+
+            const token = tokenElement.getAttribute('content');
+
+            // تجهيز البيانات
+            const requestData = {
+                date: formattedDate,
+                package_id: selectedPackageRadio.value,
+                service_id: selectedServiceId
+            };
+
+            // تنفيذ الطلب
+            fetch('/client/bookings/available-slots', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(async response => {
+                const responseText = await response.text();
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}, response: ${responseText}`);
+                }
+
+                try {
+                    return JSON.parse(responseText);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Invalid JSON response');
+                }
+            })
+            .then(data => {
+                sessionTimeSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = 'اختر الوقت المناسب';
+                sessionTimeSelect.appendChild(defaultOption);
+
+                if (data.status === 'success') {
+                    let alertHtml = '';
+
+                    // إذا كانت هناك باقات بديلة متاحة
+                    if (data.slots && data.slots.has_alternative_packages &&
+                        data.slots.alternative_packages &&
+                        data.slots.alternative_packages.length > 0) {
+                        let alternativePackagesHtml = '';
+                        let hasAnyValidAlternative = false;
+
+                        data.slots.alternative_packages.forEach(alt => {
+                            const pkg = alt.package;
+                            // فقط إذا كانت هناك مواعيد متاحة للباقة البديلة
+                            if (alt.available_slots && alt.available_slots.length > 0) {
+                                hasAnyValidAlternative = true;
+                                alternativePackagesHtml += `
+                                    <div class="alternative-package mb-2">
+                                        <h6>${pkg.name}</h6>
+                                        <p class="small text-muted mb-1">${pkg.description}</p>
+                                        <ul class="list-unstyled small">
+                                            <li><i class="fas fa-clock me-1"></i>المدة: ${
+                                                pkg.duration >= 60
+                                                ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
+                                                : `${pkg.duration} دقيقة`
+                                            }</li>
+                                            <li><i class="fas fa-tag me-1"></i>السعر: ${pkg.base_price} ريال</li>
+                                            <li><i class="fas fa-calendar-check me-1"></i>المواعيد المتاحة: ${alt.available_slots.length}</li>
+                                        </ul>
+                                        <button onclick="selectPackage(${pkg.id}, ${selectedServiceId})" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-exchange-alt me-1"></i>
+                                            اختيار هذه الباقة
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        });
+
+                        // فقط عرض قسم الباقات البديلة إذا وجدت باقات متاحة فعلاً
+                        if (hasAnyValidAlternative) {
+                            alertHtml += `
+                                <div class="alert alert-info mb-2">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    لا تتوفر مواعيد لهذه الباقة حالياً، ولكن هناك باقات متاحة في نفس الخدمة:
+                                    <div class="mt-2">
+                                        ${alternativePackagesHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+
+                    // إذا كان هناك يوم متاح قادم
+                    if (data.slots && data.slots.next_available_date) {
+                        alertHtml += `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                أقرب موعد متاح هو يوم ${data.slots.next_available_formatted_date}
+                                <button onclick="selectDate('${data.slots.next_available_date}')" class="btn btn-warning btn-sm float-end">
+                                    اختيار هذا اليوم
+                                </button>
+                            </div>
+                        `;
+                    }
+
+                    // إضافة الرسائل إلى الصفحة
+                    if (alertHtml) {
+                        const timeContainer = sessionTimeSelect.closest('.col-md-6');
+                        if (timeContainer.querySelector('.alert')) {
+                            timeContainer.querySelectorAll('.alert').forEach(alert => alert.remove());
+                        }
+                        timeContainer.insertAdjacentHTML('afterbegin', alertHtml);
+                    }
+
+                    // عرض المواعيد المتاحة في اليوم المحدد
+                    if (Array.isArray(data.slots) && data.slots.length > 0) {
+                        data.slots.forEach(slot => {
+                            const option = document.createElement('option');
+                            option.value = slot.time;
+                            option.textContent = `${slot.formatted_time} (${slot.time} - ${slot.end_time})`;
+                            // تحديد الوقت السابق إذا كان موجوداً
+                            if (oldSessionTime && oldSessionTime === slot.time) {
+                                option.selected = true;
+                            }
+                            sessionTimeSelect.appendChild(option);
+                        });
+
+                        sessionTimeSelect.disabled = false;
+                        timeNote.innerHTML = `
+                            <i class="fas fa-info-circle"></i>
+                            المواعيد المتاحة تأخذ في الاعتبار مدة الجلسة (${
+                                packageDuration >= 60
+                                ? `${Math.floor(packageDuration / 60)} ساعة${packageDuration % 60 > 0 ? ` و ${packageDuration % 60} دقيقة` : ''}`
+                                : `${packageDuration} دقيقة`
+                            })
+                        `;
+
+                        // إزالة أي alert سابق
+                        const timeContainer = sessionTimeSelect.closest('.col-md-6');
+                        if (timeContainer.querySelector('.alert')) {
+                            timeContainer.querySelector('.alert').remove();
+                        }
+                    } else {
+                        sessionTimeSelect.disabled = true;
+                        timeNote.innerHTML = `
+                            <i class="fas fa-exclamation-circle text-danger"></i>
+                            لا توجد مواعيد متاحة في هذا اليوم
+                        `;
+                    }
+                } else {
+                    sessionTimeSelect.disabled = true;
+                    timeNote.innerHTML = `
+                        <i class="fas fa-exclamation-circle text-danger"></i>
+                        ${data.message || 'حدث خطأ أثناء تحميل المواعيد المتاحة'}
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error details:', error);
+                sessionTimeSelect.disabled = true;
+                sessionTimeSelect.innerHTML = '<option value="">حدث خطأ أثناء تحميل المواعيد</option>';
+                timeNote.innerHTML = `
+                    <i class="fas fa-exclamation-circle text-danger"></i>
+                    حدث خطأ أثناء تحميل المواعيد المتاحة. يرجى المحاولة مرة أخرى
+                `;
+            });
+        }
+
+        // Handle package selection
+        function handlePackageSelection(packageId) {
+            const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
+            if (!selectedPackage) {
+                addonsSection.style.display = 'none';
+                document.getElementById('sessionTime').disabled = true;
+                document.getElementById('sessionTime').innerHTML = '<option value="">يرجى اختيار الباقة أولاً</option>';
+                return;
+            }
+
+            // Remove any applied coupon when package is changed
+            if (document.getElementById('coupon-details') && !document.getElementById('coupon-details').classList.contains('d-none')) {
+                removeCoupon();
+            }
+
+            // Enable time selection if date is selected
+            const sessionTimeSelect = document.getElementById('sessionTime');
+            const sessionDateInput = document.querySelector('input[name="session_date"]');
+
+            if (sessionDateInput.value) {
+                sessionTimeSelect.disabled = false;
+                updateAvailableTimes(selectedPackage.duration);
+            }
+
+            // تفريغ قسم الإضافات أولاً
+            const addonsContainer = addonsSection.querySelector('.row');
+            addonsContainer.innerHTML = '';
+
+            // Update addons display
+            if (selectedPackage.addons && selectedPackage.addons.length) {
+                // إنشاء الإضافات المرتبطة بالباقة المحددة فقط
+                addonsContainer.innerHTML = selectedPackage.addons.map(addon => `
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="form-check">
+                                    <input type="checkbox" name="addons[${addon.id}][id]"
+                                           value="${addon.id}"
+                                           class="form-check-input addon-checkbox"
+                                           id="addon-${addon.id}">
+                                    <input type="hidden" name="addons[${addon.id}][quantity]" value="1">
+                                    <label class="form-check-label" for="addon-${addon.id}">
+                                        <h6>${addon.name}</h6>
+                                        <p class="text-muted small mb-2">${addon.description}</p>
+                                        <span class="badge bg-primary">${addon.price} ريال</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // إضافة مستمع أحداث للإضافات لتحديث سعر التقسيط
+                setTimeout(() => {
+                    document.querySelectorAll('.addon-checkbox').forEach(checkbox => {
+                        checkbox.addEventListener('change', function() {
+                            updateTotalPriceAndInstallment();
+                        });
+                    });
+                }, 100);
+
+                addonsSection.style.display = 'block';
+            } else {
+                addonsSection.style.display = 'none';
+            }
+
+            // تحديث سعر التقسيط
+            updateTotalPriceAndInstallment();
+        }
+
+        // Handle service selection
+        serviceSelect.addEventListener('change', function() {
+            const selectedServiceId = this.value;
+            if (!selectedServiceId) {
+                packagesContainer.style.display = 'none';
+                addonsSection.style.display = 'none';
+                return;
+            }
+
+            // Remove any applied coupon when service is changed
+            if (document.getElementById('coupon-details') && !document.getElementById('coupon-details').classList.contains('d-none')) {
+                removeCoupon();
+            }
+
+            // إلغاء تحديد أي باقة سابقة وإزالة التنسيق
+            document.querySelectorAll('.package-select:checked').forEach(radio => radio.checked = false);
+            document.querySelectorAll('.package-card.selected').forEach(card => card.classList.remove('selected'));
+
+            // إلغاء تحديد الإضافات السابقة
+            document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            // إخفاء قسم التاريخ والوقت إذا كان موجودًا
+            const dateTimeSection = document.getElementById('dateTimeSection');
+            if (dateTimeSection) {
+                dateTimeSection.style.display = 'none';
+
+                // إعادة تعيين قيم حقول التاريخ والوقت
+                const dateInput = document.querySelector('input[name="session_date"]');
+                const timeSelect = document.getElementById('sessionTime');
+                if (dateInput) dateInput.value = '';
+                if (timeSelect) {
+                    timeSelect.innerHTML = '<option value="">اختر الوقت</option>';
+                    timeSelect.disabled = true;
+                }
+            }
+
+            // إخفاء قسم الإضافات حتى يتم اختيار باقة جديدة
+            addonsSection.style.display = 'none';
+
+            // Filter packages for selected service
+            const servicePackages = allPackages.filter(pkg =>
+                pkg.service_ids.includes(parseInt(selectedServiceId))
+            );
+
+            // Update packages display with oldPackageId check
+            packagesContainer.innerHTML = servicePackages.map(pkg => {
+                // إزالة التحديد التلقائي للباقة عند تغيير الخدمة
+                return `
+                <div class="col-md-6">
+                    <div class="package-card">
+                        <input type="radio" name="package_id" value="${pkg.id}"
+                               class="form-check-input package-select" required>
+                        <h5>${pkg.name}</h5>
+                        <p class="text-muted">${pkg.description}</p>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-clock me-2"></i>المدة:
+                                <span class="duration-value">${pkg.duration}</span>
+                                ${pkg.duration >= 60
+                                ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
+                                : `${pkg.duration} دقيقة`
+                            }</li>
+                            <li><i class="fas fa-images me-2"></i>عدد الصور: ${pkg.num_photos}</li>
+                            <li><i class="fas fa-palette me-2"></i>عدد الثيمات: ${pkg.themes_count}</li>
+                            <li><i class="fas fa-tag me-2"></i>السعر: ${pkg.base_price} ريال</li>
+                            ${pkg.best_coupon ? `
+                            <li class="coupon-info">
+                                <i class="fas fa-ticket-alt me-2 coupon-icon"></i>
+                                كوبون خصم:
+                                <span class="coupon-code">${pkg.best_coupon.code}</span>
+                                <span class="discount-value">(${pkg.discount_text})</span>
+                            </li>
+                            ` : ''}
+                        </ul>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            packagesContainer.style.display = 'flex';
+            addonsSection.style.display = 'none';
+
+            // Reattach package selection event listeners
+            attachPackageListeners();
+        });
+
+        function attachPackageListeners() {
+            document.querySelectorAll('.package-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) {
+                        // إلغاء تحديد جميع الإضافات السابقة عند تغيير الباقة
+                        document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
+                            checkbox.checked = false;
+                        });
+
+                        radio.checked = true;
+                        handlePackageSelection(radio.value);
+                    }
+                    document.querySelectorAll('.package-card').forEach(c => {
+                        c.classList.remove('selected');
+                    });
+                    this.classList.add('selected');
+
+                    // تحديث مبلغ التقسيط مباشرة عند اختيار باقة جديدة
+                    updateTotalPriceAndInstallment();
+                });
+            });
+        }
+
+        // دالة لحساب إجمالي السعر وتحديث التقسيط
+        function updateTotalPriceAndInstallment() {
+            const selectedPackageRadio = document.querySelector('.package-select:checked');
+            if (!selectedPackageRadio) return;
+
+            const packageId = selectedPackageRadio.value;
+            const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
+            if (!selectedPackage) return;
+
+            // الحصول على أسعار الباقة
+            let basePrice = parseFloat(selectedPackage.base_price);
+            let totalPrice = basePrice;
+
+            // إضافة أسعار الإضافات المحددة
+            document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
+                const addonId = checkbox.value;
+                const addon = selectedPackage.addons.find(a => a.id == addonId);
+                if (addon) {
+                    totalPrice += parseFloat(addon.price);
+                }
+            });
+
+            // تحديث السعر في متغير عالمي ليستخدم لاحقاً في TabbyPromo
+            window.packageData.price = totalPrice;
+
+            // تشغيل حدث خاص يمكن استخدامه لتحديث العناصر الأخرى
+            const priceUpdateEvent = new CustomEvent('priceUpdate', { detail: { price: totalPrice } });
+            document.dispatchEvent(priceUpdateEvent);
+
+            return totalPrice;
+        }
+
+        // تنفيذ اختيار الخدمة تلقائياً إذا كانت محددة مسبقاً
+        if (serviceSelect.value) {
+            // تشغيل حدث التغيير لعرض الباقات المناسبة
+            serviceSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Check if a package is already selected (e.g. after form validation error)
+        const selectedPackageRadio = document.querySelector('.package-select:checked');
+        if (selectedPackageRadio) {
+            handlePackageSelection(selectedPackageRadio.value);
+            selectedPackageRadio.closest('.package-card').classList.add('selected');
+
+            // If date is also selected, load the available time slots
+            if (sessionDateInput.value) {
+                // Find the selected package to get its duration
+                const packageId = selectedPackageRadio.value;
+                const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
+                if (selectedPackage) {
+                    updateAvailableTimes(selectedPackage.duration);
+                }
+            }
+        }
+
+        // Add date change listener
+        document.querySelector('input[name="session_date"]').addEventListener('change', function() {
+            const selectedPackageRadio = document.querySelector('.package-select:checked');
+            if (selectedPackageRadio) {
+                const packageDuration = parseFloat(selectedPackageRadio.closest('.package-card').querySelector('.duration-value').textContent);
+                if (this.value) {
+                    document.getElementById('sessionTime').disabled = false;
+                    updateAvailableTimes(packageDuration);
+                } else {
+                    document.getElementById('sessionTime').disabled = true;
+                }
+            }
+        });
+
+        // Form Animation
+        document.querySelectorAll('.form-control, .form-select').forEach(element => {
+            element.addEventListener('focus', function() {
+                this.closest('.input-group')?.classList.add('focused');
+            });
+            element.addEventListener('blur', function() {
+                this.closest('.input-group')?.classList.remove('focused');
+            });
+        });
+
+        // Global functions used in HTML
+        window.selectDate = function(date) {
+            const dateInput = document.querySelector('input[name="session_date"]');
+            dateInput.value = date;
+            dateInput.dispatchEvent(new Event('change'));
+
+            // إزالة رسائل التنبيه بعد اختيار التاريخ
+            const timeContainer = document.getElementById('sessionTime').closest('.col-md-6');
+            const alerts = timeContainer.querySelectorAll('.alert');
+            alerts.forEach(alert => alert.remove());
+        }
+
+        window.selectPackage = function(packageId, serviceId) {
+            const packageRadio = document.querySelector(`input[name="package_id"][value="${packageId}"]`);
+            if (packageRadio) {
+                // تحديد الباقة
+                packageRadio.checked = true;
+
+                // إضافة class selected للباقة المختارة وإزالته من الباقي
+                document.querySelectorAll('.package-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                packageRadio.closest('.package-card').classList.add('selected');
+
+                // تحديد الخدمة المناسبة إذا لم تكن محددة
+                const serviceSelect = document.querySelector('select[name="service_id"]');
+                if (serviceSelect.value !== serviceId.toString()) {
+                    serviceSelect.value = serviceId;
+                    serviceSelect.dispatchEvent(new Event('change'));
+                }
+
+                // تشغيل معالج اختيار الباقة
+                handlePackageSelection(packageId);
+
+                // إزالة رسائل التنبيه
+                const timeContainer = document.getElementById('sessionTime').closest('.col-md-6');
+                const alerts = timeContainer.querySelectorAll('.alert');
+                alerts.forEach(alert => alert.remove());
+
+                // تمرير للباقة المختارة في الصفحة
+                packageRadio.closest('.package-card').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error in data parsing:', error);
+        // Show friendly error message to user
+        const formContainer = document.querySelector('.booking-form');
+        if (formContainer) {
+            formContainer.insertAdjacentHTML('afterbegin', `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    حدثت مشكلة في تحميل بيانات الصفحة. يرجى <a href="?reset_session=1" class="alert-link">إعادة ضبط الصفحة</a> للمتابعة.
+                </div>
+            `);
+        }
+    }
+});

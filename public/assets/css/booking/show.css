@@ -1,0 +1,306 @@
+:root {
+    --primary-color: #FF1493;
+    --primary-light: #FF69B4;
+    --primary-dark: #C71585;
+    --secondary-color: #4169E1;
+    --secondary-light: #6495ED;
+    --secondary-dark: #283593;
+    --accent-color: #00CED1;
+    --accent-light: #40E0D0;
+    --accent-dark: #008B8B;
+    --light-color: #FFFFFF;
+    --dark-color: #0A0A0A;
+    --gray-100: #F8F9FA;
+    --gray-200: #E2E8F0;
+    --gray-300: #CBD5E0;
+    --background-color: #F0F4FF;
+    --glass-background: rgba(255, 255, 255, 0.85);
+    --glass-background-dark: rgba(255, 255, 255, 0.95);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.65);
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    --text-color: #1A1A1A;
+    --text-light: #2C3E50;
+    --danger-color: #FF0000;
+    --success-color: #00B140;
+    --warning-color: #FFA500;
+    --processing-color: #0066CC;
+    --background-light: #f8f9fa;
+    --border-radius: 15px;
+    --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    --transition: all 0.3s ease;
+}
+
+.booking-details {
+    background: var(--glass-background);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.booking-details:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-light);
+}
+
+.booking-header {
+    padding: 1.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background: linear-gradient(45deg, rgba(255, 105, 180, 0.1), transparent);
+}
+
+.booking-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+}
+
+.booking-header h2 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.75rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.booking-body {
+    padding: 2rem;
+    background: var(--background-light);
+    position: relative;
+}
+
+.info-group {
+    background: var(--glass-background);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.info-group h6 {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.info-group i {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.booking-status {
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.price-details {
+    background: var(--glass-background);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 15px;
+    border: var(--glass-border);
+    padding: 1.75rem;
+    margin-top: 2rem;
+}
+
+.price-details::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: var(--primary-color);
+    opacity: 0.1;
+    border-radius: 0 0 0 100%;
+}
+
+.price-details h5 {
+    color: var(--primary-color);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid rgba(255, 20, 147, 0.1);
+    position: relative;
+}
+
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.total-price {
+    background: var(--primary-color);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-top: 1.5rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.total-price::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+.consent-section {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-top: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.consent-section::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--primary-color);
+    opacity: 1;
+}
+
+.actions {
+    margin-top: 2.5rem;
+    text-align: center;
+}
+
+.btn-back {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem 2.5rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(255, 20, 147, 0.2);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-back::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 768px) {
+    /* Remove padding from the main container */
+    .container {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .booking-details {
+        width: 100%;
+        border-radius: 0; /* Optional: Remove radius */
+        margin-bottom: 1rem;
+    }
+
+    .booking-header {
+        padding: 1.5rem;
+    }
+
+    .booking-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .booking-body {
+        padding: 1.5rem;
+    }
+
+    .info-group,
+    .price-details,
+    .consent-section,
+    .addon-item {
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        width: 100%;
+        border-radius: 0; /* Optional */
+    }
+
+    /* Ensure columns stack */
+    .booking-body .row > div {
+        width: 100%;
+        margin-bottom: 0; /* Reset bottom margin if columns stack */
+    }
+
+    .btn-back {
+        width: 100%;
+        justify-content: center;
+        padding: 1rem;
+        border-radius: 0; /* Optional */
+        margin-top: 1.5rem;
+    }
+
+    .alert {
+        width: 100%;
+        margin-bottom: 1rem;
+        border-radius: 0; /* Optional */
+    }
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.addon-item {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+}
+
+.badge {
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-weight: 500;
+}
