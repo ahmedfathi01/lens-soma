@@ -989,9 +989,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         showNotification(data.message, 'success');
 
                         const urlParams = new URLSearchParams(window.location.search);
-                        const redirectUrl = urlParams.has('pending_appointment') ?
+                        let redirectUrl = urlParams.has('pending_appointment') ?
                             '/cart' :
                             (data.redirect_url || '/appointments');
+
+                        if (redirectUrl.startsWith('http')) {
+                            try {
+                                const url = new URL(redirectUrl);
+                                if (url.origin !== window.location.origin) {
+                                    redirectUrl = '/appointments';
+                                }
+                            } catch (e) {
+                                redirectUrl = '/appointments';
+                            }
+                        } else if (!redirectUrl.startsWith('/')) {
+                            redirectUrl = '/' + redirectUrl;
+                        }
 
                         setTimeout(() => {
                             window.location.href = redirectUrl;

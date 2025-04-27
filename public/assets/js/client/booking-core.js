@@ -1,7 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Ensure proper data parsing with error handling
     try {
-        // Store all data with proper JSON encoding
         const servicesData = document.getElementById('services-data').value;
         const packagesData = document.getElementById('packages-data').value;
         const addonsData = document.getElementById('addons-data').value;
@@ -12,18 +10,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const allAddons = addonsData ? JSON.parse(addonsData) : [];
         const currentBookings = bookingsData ? JSON.parse(bookingsData) : [];
 
-        // Store old session time if available
         const oldSessionTimeElement = document.getElementById('old-session-time');
         const oldSessionTime = oldSessionTimeElement ? oldSessionTimeElement.value : '';
 
-        // Get old package id from hidden input
         const oldPackageIdElement = document.getElementById('old-package-id');
         const oldPackageId = oldPackageIdElement ? oldPackageIdElement.value : 0;
 
-        // Fix addon price display in HTML
         document.querySelectorAll('.badge.bg-primary').forEach(badge => {
             if (badge.textContent.includes('$')) {
-                // Replace ${addon.price} with actual number + ريال
                 const addonId = badge.closest('.form-check').querySelector('input[type="checkbox"]').value;
                 const addon = allAddons.find(a => a.id == addonId);
                 if (addon) {
@@ -32,13 +26,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Get DOM elements
         const serviceSelect = document.querySelector('select[name="service_id"]');
         const packagesContainer = document.querySelector('.row:has(.package-card)');
         const addonsSection = document.getElementById('addons-section');
         const sessionDateInput = document.querySelector('input[name="session_date"]');
 
-        // Hide packages and addons initially if no service is selected
         if (!serviceSelect.value) {
             packagesContainer.style.display = 'none';
             addonsSection.style.display = 'none';
@@ -52,13 +44,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const selectedPackageRadio = document.querySelector('.package-select:checked');
             const selectedServiceId = document.querySelector('select[name="service_id"]').value;
 
-            // التحقق من وجود جميع العناصر المطلوبة
             if (!sessionTimeSelect || !sessionDateInput || !timeNote || !selectedPackageRadio || !selectedServiceId) {
                 console.error('Required elements not found');
                 return;
             }
 
-            // التحقق من وجود قيم صالحة
             if (!packageDuration || !sessionDateInput.value || !selectedPackageRadio.value) {
                 sessionTimeSelect.disabled = true;
                 sessionTimeSelect.innerHTML = '<option value="">يرجى اختيار الباقة والتاريخ أولاً</option>';
@@ -70,7 +60,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // عرض حالة التحميل
             sessionTimeSelect.disabled = true;
             sessionTimeSelect.innerHTML = '<option value="">جاري تحميل المواعيد المتاحة...</option>';
             timeNote.textContent = '';
@@ -79,10 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
             timeNote.appendChild(spinnerIcon);
             timeNote.appendChild(document.createTextNode(' جاري التحقق من المواعيد المتاحة...'));
 
-            // تنسيق التاريخ
             const formattedDate = sessionDateInput.value.split('T')[0];
 
-            // التحقق من وجود CSRF token
             const tokenElement = document.querySelector('meta[name="csrf-token"]');
             if (!tokenElement) {
                 console.error('CSRF token not found');
@@ -96,14 +83,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const token = tokenElement.getAttribute('content');
 
-            // تجهيز البيانات
             const requestData = {
                 date: formattedDate,
                 package_id: selectedPackageRadio.value,
                 service_id: selectedServiceId
             };
 
-            // تنفيذ الطلب
             fetch('/client/bookings/available-slots', {
                 method: 'POST',
                 headers: {
@@ -138,7 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     let alertHtml = '';
 
-                    // إذا كانت هناك باقات بديلة متاحة
                     if (data.slots && data.slots.has_alternative_packages &&
                         data.slots.alternative_packages &&
                         data.slots.alternative_packages.length > 0) {
@@ -147,10 +131,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         data.slots.alternative_packages.forEach(alt => {
                             const pkg = alt.package;
-                            // فقط إذا كانت هناك مواعيد متاحة للباقة البديلة
                             if (alt.available_slots && alt.available_slots.length > 0) {
                                 hasAnyValidAlternative = true;
-                                // Create sanitized HTML for alternative packages
                                 const duration = pkg.duration >= 60
                                     ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
                                     : `${pkg.duration} دقيقة`;
@@ -170,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const ul = document.createElement('ul');
                                 ul.className = 'list-unstyled small';
 
-                                // Duration li
                                 const durationLi = document.createElement('li');
                                 const durationIcon = document.createElement('i');
                                 durationIcon.className = 'fas fa-clock me-1';
@@ -178,7 +159,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 durationLi.appendChild(document.createTextNode(`المدة: ${duration}`));
                                 ul.appendChild(durationLi);
 
-                                // Price li
                                 const priceLi = document.createElement('li');
                                 const priceIcon = document.createElement('i');
                                 priceIcon.className = 'fas fa-tag me-1';
@@ -186,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 priceLi.appendChild(document.createTextNode(`السعر: ${pkg.base_price} ريال`));
                                 ul.appendChild(priceLi);
 
-                                // Available slots li
                                 const slotsLi = document.createElement('li');
                                 const slotsIcon = document.createElement('i');
                                 slotsIcon.className = 'fas fa-calendar-check me-1';
@@ -210,7 +189,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         });
 
-                        // فقط عرض قسم الباقات البديلة إذا وجدت باقات متاحة فعلاً
                         if (hasAnyValidAlternative) {
                             const alertDiv = document.createElement('div');
                             alertDiv.className = 'alert alert-info mb-2';
@@ -223,14 +201,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             const alternativesDiv = document.createElement('div');
                             alternativesDiv.className = 'mt-2';
-                            alternativesDiv.innerHTML = alternativePackagesHtml; // This is safer now as we built it with DOM methods
+                            alternativesDiv.innerHTML = alternativePackagesHtml;
                             alertDiv.appendChild(alternativesDiv);
 
                             alertHtml += alertDiv.outerHTML;
                         }
                     }
 
-                    // إذا كان هناك يوم متاح قادم
                     if (data.slots && data.slots.next_available_date) {
                         const alertDiv = document.createElement('div');
                         alertDiv.className = 'alert alert-warning';
@@ -250,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         alertHtml += alertDiv.outerHTML;
                     }
 
-                    // إضافة الرسائل إلى الصفحة
                     if (alertHtml) {
                         const timeContainer = sessionTimeSelect.closest('.col-md-6');
                         if (timeContainer.querySelector('.alert')) {
@@ -259,13 +235,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         timeContainer.insertAdjacentHTML('afterbegin', alertHtml);
                     }
 
-                    // عرض المواعيد المتاحة في اليوم المحدد
                     if (Array.isArray(data.slots) && data.slots.length > 0) {
                         data.slots.forEach(slot => {
                             const option = document.createElement('option');
                             option.value = slot.time;
                             option.textContent = `${slot.formatted_time} (${slot.time} - ${slot.end_time})`;
-                            // تحديد الوقت السابق إذا كان موجوداً
                             if (oldSessionTime && oldSessionTime === slot.time) {
                                 option.selected = true;
                             }
@@ -274,7 +248,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         sessionTimeSelect.disabled = false;
 
-                        // Clear timeNote and add content safely
                         timeNote.textContent = '';
                         const infoIcon = document.createElement('i');
                         infoIcon.className = 'fas fa-info-circle';
@@ -286,7 +259,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         timeNote.appendChild(document.createTextNode(` المواعيد المتاحة تأخذ في الاعتبار مدة الجلسة (${duration})`));
 
-                        // إزالة أي alert سابق
                         const timeContainer = sessionTimeSelect.closest('.col-md-6');
                         if (timeContainer.querySelector('.alert')) {
                             timeContainer.querySelector('.alert').remove();
@@ -294,7 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         sessionTimeSelect.disabled = true;
 
-                        // Clear timeNote and add error content safely
                         timeNote.textContent = '';
                         const errorIcon = document.createElement('i');
                         errorIcon.className = 'fas fa-exclamation-circle text-danger';
@@ -304,7 +275,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     sessionTimeSelect.disabled = true;
 
-                    // Clear timeNote and add error message safely
                     timeNote.textContent = '';
                     const errorIcon = document.createElement('i');
                     errorIcon.className = 'fas fa-exclamation-circle text-danger';
@@ -317,7 +287,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionTimeSelect.disabled = true;
                 sessionTimeSelect.innerHTML = '<option value="">حدث خطأ أثناء تحميل المواعيد</option>';
 
-                // Clear timeNote and add error message safely
                 timeNote.textContent = '';
                 const errorIcon = document.createElement('i');
                 errorIcon.className = 'fas fa-exclamation-circle text-danger';
@@ -326,7 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Handle package selection
         function handlePackageSelection(packageId) {
             const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
             if (!selectedPackage) {
@@ -336,12 +304,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Remove any applied coupon when package is changed
             if (document.getElementById('coupon-details') && !document.getElementById('coupon-details').classList.contains('d-none')) {
                 removeCoupon();
             }
 
-            // Enable time selection if date is selected
             const sessionTimeSelect = document.getElementById('sessionTime');
             const sessionDateInput = document.querySelector('input[name="session_date"]');
 
@@ -350,13 +316,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateAvailableTimes(selectedPackage.duration);
             }
 
-            // تفريغ قسم الإضافات أولاً
             const addonsContainer = addonsSection.querySelector('.row');
             addonsContainer.innerHTML = '';
 
-            // Update addons display
             if (selectedPackage.addons && selectedPackage.addons.length) {
-                // إنشاء الإضافات المرتبطة بالباقة المحددة فقط
                 addonsContainer.innerHTML = selectedPackage.addons.map(addon => `
                     <div class="col-md-4 mb-3">
                         <div class="card h-100">
@@ -378,7 +341,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `).join('');
 
-                // إضافة مستمع أحداث للإضافات لتحديث سعر التقسيط
                 setTimeout(() => {
                     document.querySelectorAll('.addon-checkbox').forEach(checkbox => {
                         checkbox.addEventListener('change', function() {
@@ -392,11 +354,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 addonsSection.style.display = 'none';
             }
 
-            // تحديث سعر التقسيط
             updateTotalPriceAndInstallment();
         }
 
-        // Handle service selection
         serviceSelect.addEventListener('change', function() {
             const selectedServiceId = this.value;
             if (!selectedServiceId) {
@@ -405,26 +365,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Remove any applied coupon when service is changed
             if (document.getElementById('coupon-details') && !document.getElementById('coupon-details').classList.contains('d-none')) {
                 removeCoupon();
             }
 
-            // إلغاء تحديد أي باقة سابقة وإزالة التنسيق
             document.querySelectorAll('.package-select:checked').forEach(radio => radio.checked = false);
             document.querySelectorAll('.package-card.selected').forEach(card => card.classList.remove('selected'));
 
-            // إلغاء تحديد الإضافات السابقة
             document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
                 checkbox.checked = false;
             });
 
-            // إخفاء قسم التاريخ والوقت إذا كان موجودًا
             const dateTimeSection = document.getElementById('dateTimeSection');
             if (dateTimeSection) {
                 dateTimeSection.style.display = 'none';
 
-                // إعادة تعيين قيم حقول التاريخ والوقت
                 const dateInput = document.querySelector('input[name="session_date"]');
                 const timeSelect = document.getElementById('sessionTime');
                 if (dateInput) dateInput.value = '';
@@ -434,17 +389,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // إخفاء قسم الإضافات حتى يتم اختيار باقة جديدة
             addonsSection.style.display = 'none';
 
-            // Filter packages for selected service
             const servicePackages = allPackages.filter(pkg =>
                 pkg.service_ids.includes(parseInt(selectedServiceId))
             );
 
-            // Update packages display with oldPackageId check
             packagesContainer.innerHTML = servicePackages.map(pkg => {
-                // إزالة التحديد التلقائي للباقة عند تغيير الخدمة
                 return `
                 <div class="col-md-6">
                     <div class="package-card">
@@ -479,7 +430,6 @@ document.addEventListener('DOMContentLoaded', function() {
             packagesContainer.style.display = 'flex';
             addonsSection.style.display = 'none';
 
-            // Reattach package selection event listeners
             attachPackageListeners();
         });
 
@@ -488,7 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.addEventListener('click', function() {
                     const radio = this.querySelector('input[type="radio"]');
                     if (radio) {
-                        // إلغاء تحديد جميع الإضافات السابقة عند تغيير الباقة
                         document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
                             checkbox.checked = false;
                         });
@@ -501,13 +450,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     this.classList.add('selected');
 
-                    // تحديث مبلغ التقسيط مباشرة عند اختيار باقة جديدة
                     updateTotalPriceAndInstallment();
                 });
             });
         }
 
-        // دالة لحساب إجمالي السعر وتحديث التقسيط
         function updateTotalPriceAndInstallment() {
             const selectedPackageRadio = document.querySelector('.package-select:checked');
             if (!selectedPackageRadio) return;
@@ -516,11 +463,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
             if (!selectedPackage) return;
 
-            // الحصول على أسعار الباقة
             let basePrice = parseFloat(selectedPackage.base_price);
             let totalPrice = basePrice;
 
-            // إضافة أسعار الإضافات المحددة
             document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
                 const addonId = checkbox.value;
                 const addon = selectedPackage.addons.find(a => a.id == addonId);
@@ -529,31 +474,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
 
-            // تحديث السعر في متغير عالمي ليستخدم لاحقاً في TabbyPromo
             window.packageData.price = totalPrice;
 
-            // تشغيل حدث خاص يمكن استخدامه لتحديث العناصر الأخرى
             const priceUpdateEvent = new CustomEvent('priceUpdate', { detail: { price: totalPrice } });
             document.dispatchEvent(priceUpdateEvent);
 
             return totalPrice;
         }
 
-        // تنفيذ اختيار الخدمة تلقائياً إذا كانت محددة مسبقاً
         if (serviceSelect.value) {
-            // تشغيل حدث التغيير لعرض الباقات المناسبة
             serviceSelect.dispatchEvent(new Event('change'));
         }
 
-        // Check if a package is already selected (e.g. after form validation error)
         const selectedPackageRadio = document.querySelector('.package-select:checked');
         if (selectedPackageRadio) {
             handlePackageSelection(selectedPackageRadio.value);
             selectedPackageRadio.closest('.package-card').classList.add('selected');
 
-            // If date is also selected, load the available time slots
             if (sessionDateInput.value) {
-                // Find the selected package to get its duration
                 const packageId = selectedPackageRadio.value;
                 const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
                 if (selectedPackage) {
@@ -562,7 +500,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Add date change listener
         document.querySelector('input[name="session_date"]').addEventListener('change', function() {
             const selectedPackageRadio = document.querySelector('.package-select:checked');
             if (selectedPackageRadio) {
@@ -576,7 +513,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Form Animation
         document.querySelectorAll('.form-control, .form-select').forEach(element => {
             element.addEventListener('focus', function() {
                 this.closest('.input-group')?.classList.add('focused');
@@ -586,13 +522,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // Global functions used in HTML
         window.selectDate = function(date) {
             const dateInput = document.querySelector('input[name="session_date"]');
             dateInput.value = date;
             dateInput.dispatchEvent(new Event('change'));
 
-            // إزالة رسائل التنبيه بعد اختيار التاريخ
             const timeContainer = document.getElementById('sessionTime').closest('.col-md-6');
             const alerts = timeContainer.querySelectorAll('.alert');
             alerts.forEach(alert => alert.remove());
@@ -601,31 +535,25 @@ document.addEventListener('DOMContentLoaded', function() {
         window.selectPackage = function(packageId, serviceId) {
             const packageRadio = document.querySelector(`input[name="package_id"][value="${packageId}"]`);
             if (packageRadio) {
-                // تحديد الباقة
                 packageRadio.checked = true;
 
-                // إضافة class selected للباقة المختارة وإزالته من الباقي
                 document.querySelectorAll('.package-card').forEach(card => {
                     card.classList.remove('selected');
                 });
                 packageRadio.closest('.package-card').classList.add('selected');
 
-                // تحديد الخدمة المناسبة إذا لم تكن محددة
                 const serviceSelect = document.querySelector('select[name="service_id"]');
                 if (serviceSelect.value !== serviceId.toString()) {
                     serviceSelect.value = serviceId;
                     serviceSelect.dispatchEvent(new Event('change'));
                 }
 
-                // تشغيل معالج اختيار الباقة
                 handlePackageSelection(packageId);
 
-                // إزالة رسائل التنبيه
                 const timeContainer = document.getElementById('sessionTime').closest('.col-md-6');
                 const alerts = timeContainer.querySelectorAll('.alert');
                 alerts.forEach(alert => alert.remove());
 
-                // تمرير للباقة المختارة في الصفحة
                 packageRadio.closest('.package-card').scrollIntoView({
                     behavior: 'smooth',
                     block: 'center'
@@ -634,7 +562,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     } catch (error) {
         console.error('Error in data parsing:', error);
-        // Show friendly error message to user
         const formContainer = document.querySelector('.booking-form');
         if (formContainer) {
             formContainer.insertAdjacentHTML('afterbegin', `

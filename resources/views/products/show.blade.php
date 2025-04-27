@@ -185,7 +185,8 @@
                                 <div class="image-thumbnails">
                                     @foreach($product->images as $image)
                                         <div class="thumbnail-wrapper {{ $image->is_primary ? 'active' : '' }}"
-                                            onclick="updateMainImageSafe('{{ url('storage/' . $image->image_path) }}', this)">
+                                            data-image-url="{{ url('storage/' . $image->image_path) }}"
+                                            onclick="updateMainImageSafe(this.getAttribute('data-image-url'), this)">
                                             <img src="{{ url('storage/' . $image->image_path) }}"
                                                 alt="Product thumbnail"
                                                 class="thumbnail-image">
@@ -341,7 +342,7 @@
                                         data-color="{{ $color->color }}"
                                         onclick="selectColor(this)">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span class="color-preview" style="background-color: {{ e($color->color) }};"></span>
+                                            <span class="color-preview" style="background-color: #{{ ltrim($color->color, '#') }}"></span>
                                             <span class="color-name">{{ e($color->color) }}</span>
                                         </div>
                                         <span class="color-status">
@@ -502,7 +503,8 @@
                     @else
                         <!-- Login to Order Button -->
                         <button class="btn btn-primary btn-lg w-100 mb-4"
-                                onclick="showLoginPrompt('{{ e(route('login')) }}')"
+                                data-login-url="{{ e(route('login')) }}"
+                                onclick="showLoginPrompt(this.getAttribute('data-login-url'))"
                                 type="button">
                             <i class="fas fa-shopping-cart me-2"></i>
                             تسجيل الدخول للطلب
