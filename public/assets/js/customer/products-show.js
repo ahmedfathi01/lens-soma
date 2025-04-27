@@ -116,6 +116,27 @@ function updateWorkingHoursDisplay() {
     }
 }
 
+function validateRedirectUrl(url) {
+    if (!url) return '/';
+
+    if (url.startsWith('/')) {
+        if (!url.startsWith('//')) {
+            return url;
+        }
+    }
+
+    try {
+        const urlObj = new URL(url, window.location.origin);
+        if (urlObj.origin === window.location.origin) {
+            return url;
+        }
+    } catch (e) {
+        // Invalid URL
+    }
+
+    return '/';
+}
+
 function showAppointmentModal(cartItemId) {
     if (!getAppointmentsStatus() || !document.getElementById('needsAppointment')?.checked) {
         showNotification('تم إضافة المنتج للسلة بنجاح', 'success');
@@ -714,7 +735,7 @@ function loadCartItems() {
 function showLoginPrompt(loginUrl) {
     const currentUrl = window.location.href;
     const modal = new bootstrap.Modal(document.getElementById('loginPromptModal'));
-    document.getElementById('loginButton').href = `${loginUrl}?redirect=${encodeURIComponent(currentUrl)}`;
+    document.getElementById('loginButton').href = `${validateRedirectUrl(loginUrl)}?redirect=${encodeURIComponent(currentUrl)}`;
     modal.show();
 }
 
@@ -991,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const urlParams = new URLSearchParams(window.location.search);
                         const redirectUrl = urlParams.has('pending_appointment') ?
                             '/cart' :
-                            (data.redirect_url || '/appointments');
+                            validateRedirectUrl(data.redirect_url || '/appointments');
 
                         setTimeout(() => {
                             window.location.href = redirectUrl;
