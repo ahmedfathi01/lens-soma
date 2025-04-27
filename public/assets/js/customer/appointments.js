@@ -190,49 +190,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.insertBefore(notification, form.firstChild);
 
                 // Sanitize redirect URL to prevent open redirect vulnerabilities
-                let safeRedirectUrl = '/appointments'; // Default safe URL
+                // Implement a whitelist approach - only allow redirects to specific known paths
+                const ALLOWED_REDIRECT_PATHS = [
+                    '/appointments',
+                    '/dashboard',
+                    '/profile',
+                    '/cart',
+                    '/checkout',
+                    '/client/bookings/my'
+                ];
+
+                // Default safe redirect
+                let safeRedirectUrl = '/appointments';
 
                 if (data.redirect_url) {
-                    // Validate redirect URL type
-                    if (!data.redirect_url || typeof data.redirect_url !== 'string') {
-                        console.error('Invalid redirect URL type:', typeof data.redirect_url);
-                    }
-                    // Handle absolute URLs (starting with http)
-                    else if (data.redirect_url.startsWith('http')) {
-                        try {
+                    try {
+                        // For URLs starting with http or https
+                        if (data.redirect_url.startsWith('http')) {
                             const url = new URL(data.redirect_url);
-                            // Strictly verify same origin
+
+                            // Only allow same origin URLs
                             if (url.origin === window.location.origin) {
-                                safeRedirectUrl = data.redirect_url;
+                                // Get the path and check if it's in the whitelist
+                                const path = url.pathname;
+
+                                // Check if the path starts with any of our allowed paths
+                                const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
+                                    path === allowedPath || path.startsWith(`${allowedPath}/`));
+
+                                if (isAllowedPath) {
+                                    safeRedirectUrl = data.redirect_url;
+                                } else {
+                                    console.error('Redirect to non-whitelisted path blocked:', path);
+                                }
                             } else {
                                 console.error('Blocked potential open redirect to different origin:', data.redirect_url);
                             }
-                        } catch (e) {
-                            console.error('Invalid URL in redirect:', e);
                         }
-                    }
-                    // Handle relative URLs
-                    else if (data.redirect_url.startsWith('/')) {
-                        safeRedirectUrl = data.redirect_url;
-                    }
-                    // Handle relative URLs without leading slash
-                    else {
-                        safeRedirectUrl = '/' + data.redirect_url;
+                        // For relative URLs
+                        else {
+                            let path = data.redirect_url;
+
+                            // Ensure path starts with /
+                            if (!path.startsWith('/')) {
+                                path = '/' + path;
+                            }
+
+                            // Check if the path is in our whitelist
+                            const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
+                                path === allowedPath || path.startsWith(`${allowedPath}/`));
+
+                            if (isAllowedPath) {
+                                safeRedirectUrl = path;
+                            } else {
+                                console.error('Redirect to non-whitelisted path blocked:', path);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error validating redirect URL:', e);
                     }
                 }
 
-                // Final safety check - only allow whitelisted domains if it's still external
-                if (safeRedirectUrl.startsWith('http')) {
-                    const safeOrigin = window.location.origin;
-                    if (!safeRedirectUrl.startsWith(safeOrigin)) {
-                        console.error('Blocked potential open redirect after validation:', safeRedirectUrl);
-                        safeRedirectUrl = '/appointments';
-                    }
-                }
+                // Log the redirect for audit purposes
+                console.log('Redirecting to:', safeRedirectUrl);
 
                 // إعادة التوجيه بعد تأخير
                 setTimeout(() => {
-                    window.location.href = safeRedirectUrl;
+                    window.location.href = safeRedirect(safeRedirectUrl);
                 }, 2000);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');
@@ -259,10 +283,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Add a centralized safe redirect helper function
+    function safeRedirect(targetPath) {
+        // Whitelist of allowed redirect destinations
+        const ALLOWED_REDIRECT_PATHS = [
+            '/appointments',
+            '/dashboard',
+            '/profile',
+            '/cart',
+            '/checkout',
+            '/client/bookings/my',
+            '/products'
+        ];
+
+        // Default safe redirect destination
+        let safeDestination = '/appointments';
+
+        try {
+            let path = targetPath;
+
+            // Parse URLs starting with http
+            if (path.startsWith('http')) {
+                const url = new URL(path);
+
+                // Only allow same origin
+                if (url.origin === window.location.origin) {
+                    path = url.pathname;
+                } else {
+                    console.error('Blocked redirect to external domain:', path);
+                    return safeDestination;
+                }
+            }
+
+            // Ensure path starts with /
+            if (!path.startsWith('/')) {
+                path = '/' + path;
+            }
+
+            // Check if path is in whitelist
+            const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
+                path === allowedPath || path.startsWith(`${allowedPath}/`));
+
+            if (isAllowedPath) {
+                safeDestination = path;
+            } else {
+                console.error('Redirect to non-whitelisted path blocked:', path);
+            }
+        } catch (e) {
+            console.error('Error in safeRedirect:', e);
+        }
+
+        console.log('Safe redirect to:', safeDestination);
+        return safeDestination;
+    }
+
     // معالجة زر الإلغاء
     document.getElementById('cancelBtn')?.addEventListener('click', function() {
         if (confirm('هل أنت متأكد من إلغاء حجز الموعد؟')) {
-            window.location.href = '/appointments'; // العودة لصفحة المواعيد
+            window.location.href = safeRedirect('/appointments'); // العودة لصفحة المواعيد
         }
     });
 });
