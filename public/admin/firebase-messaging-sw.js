@@ -2,7 +2,7 @@ importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js');
 
 self.addEventListener('message', function(event) {
-    const trustedOrigins = [
+    const allowedOrigins = [
         'https://lens-soma.com',
         'https://www.lens-soma.com',
         'http://127.0.0.1:8000',
@@ -10,7 +10,12 @@ self.addEventListener('message', function(event) {
         self.origin
     ];
 
-    if (trustedOrigins.includes(event.origin) && event.data && event.data.type === 'FIREBASE_CONFIG') {
+    if (!allowedOrigins.includes(event.origin)) {
+        console.error('Message from untrusted origin rejected:', event.origin);
+        return;
+    }
+
+    if (event.data && event.data.type === 'FIREBASE_CONFIG') {
         firebase.initializeApp(event.data.config);
         const messaging = firebase.messaging();
 
