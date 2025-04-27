@@ -117,24 +117,41 @@ function updateWorkingHoursDisplay() {
 }
 
 function validateRedirectUrl(url) {
+    // If no URL is provided, return a safe default
     if (!url) return '/';
 
-    if (url.startsWith('/')) {
-        if (!url.startsWith('//')) {
-            return url;
-        }
-    }
-
     try {
-        const urlObj = new URL(url, window.location.origin);
-        if (urlObj.origin === window.location.origin) {
-            return url;
+        // For absolute URLs, check if they belong to our domain
+        if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
+            const urlObj = new URL(url, window.location.origin);
+            // Only allow URLs from our domain
+            if (urlObj.origin !== window.location.origin) {
+                console.error('Potential open redirect blocked:', url);
+                return '/';
+            }
         }
-    } catch (e) {
-        // Invalid URL
-    }
+        // For relative URLs, only allow those starting with a single slash
+        else if (!url.startsWith('/') || url.startsWith('//')) {
+            console.error('Invalid relative URL blocked:', url);
+            return '/';
+        }
 
-    return '/';
+        // Additional checks for potential JavaScript protocol or data URL injection
+        const sanitizedUrl = url.toLowerCase().trim();
+        if (sanitizedUrl.startsWith('javascript:') ||
+            sanitizedUrl.startsWith('data:') ||
+            sanitizedUrl.startsWith('vbscript:')) {
+            console.error('Potential protocol injection blocked:', url);
+            return '/';
+        }
+
+        // URL passed all security checks
+        return url;
+    } catch (e) {
+        // If URL parsing fails, return a safe default
+        console.error('URL validation error:', e);
+        return '/';
+    }
 }
 
 function showAppointmentModal(cartItemId) {
@@ -1012,10 +1029,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         const urlParams = new URLSearchParams(window.location.search);
                         const redirectUrl = urlParams.has('pending_appointment') ?
                             '/cart' :
-                            validateRedirectUrl(data.redirect_url || '/appointments');
+                            (data.redirect_url || '/appointments');
 
                         setTimeout(() => {
-                            window.location.href = redirectUrl;
+                            safeRedirect(redirectUrl);
                         }, 2000);
                     } else {
                         throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');
@@ -1084,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const urlParams = new URLSearchParams(window.location.search);
                         if (urlParams.has('pending_appointment')) {
-                            window.location.href = '/cart';
+                            safeRedirect('/cart');
                         } else {
                             bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
                             loadCartItems();
@@ -1296,3 +1313,18 @@ function toggleCustomColor(checkbox) {
         customColorInput.disabled = true;
     }
 }
+
+// Add this at the top of the file after the existing validation function
+// Create a safer version of window.location.href
+function safeRedirect(url) {
+    const safeUrl = validateRedirectUrl(url);
+    window.location.href = safeUrl;
+}
+
+// Override window.location.href with a safer implementation
+Object.defineProperty(window.location, 'safehref', {
+    set: function(url) {
+        const safeUrl = validateRedirectUrl(url);
+        this.href = safeUrl;
+    }
+});

@@ -1,28 +1,55 @@
 // Add URL validation function at the top of the file
 function validateRedirectUrl(url) {
+    // If no URL is provided, return a safe default
     if (!url) return '/appointments';
 
-    // Allow relative paths that start with slash
-    if (url.startsWith('/')) {
-        // Make sure there's no protocol injection via // (protocol-relative URLs)
-        if (!url.startsWith('//')) {
-            return url;
-        }
-    }
-
     try {
-        // Check if URL belongs to our domain
-        const urlObj = new URL(url, window.location.origin);
-        if (urlObj.origin === window.location.origin) {
-            return url;
+        // For absolute URLs, check if they belong to our domain
+        if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
+            const urlObj = new URL(url, window.location.origin);
+            // Only allow URLs from our domain
+            if (urlObj.origin !== window.location.origin) {
+                console.error('Potential open redirect blocked:', url);
+                return '/appointments';
+            }
         }
-    } catch (e) {
-        // Invalid URL
-    }
+        // For relative URLs, only allow those starting with a single slash
+        else if (!url.startsWith('/') || url.startsWith('//')) {
+            console.error('Invalid relative URL blocked:', url);
+            return '/appointments';
+        }
 
-    // Default to a safe path
-    return '/appointments';
+        // Additional checks for potential JavaScript protocol or data URL injection
+        const sanitizedUrl = url.toLowerCase().trim();
+        if (sanitizedUrl.startsWith('javascript:') ||
+            sanitizedUrl.startsWith('data:') ||
+            sanitizedUrl.startsWith('vbscript:')) {
+            console.error('Potential protocol injection blocked:', url);
+            return '/appointments';
+        }
+
+        // URL passed all security checks
+        return url;
+    } catch (e) {
+        // If URL parsing fails, return a safe default
+        console.error('URL validation error:', e);
+        return '/appointments';
+    }
 }
+
+// Create a safer version of window.location.href
+function safeRedirect(url) {
+    const safeUrl = validateRedirectUrl(url);
+    window.location.href = safeUrl;
+}
+
+// Override window.location.href with a safer implementation
+Object.defineProperty(window.location, 'safehref', {
+    set: function(url) {
+        const safeUrl = validateRedirectUrl(url);
+        this.href = safeUrl;
+    }
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('appointmentForm');
@@ -215,12 +242,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 notification.textContent = data.message;
                 form.insertBefore(notification, form.firstChild);
 
-                // Validate redirect URL before redirecting
-                const safeRedirectUrl = validateRedirectUrl(data.redirect_url);
-
-                // إعادة التوجيه بعد تأخير
+                // Use our safeRedirect function instead of direct assignment
                 setTimeout(() => {
-                    window.location.href = safeRedirectUrl;
+                    safeRedirect(data.redirect_url);
                 }, 2000);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');
@@ -250,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // معالجة زر الإلغاء
     document.getElementById('cancelBtn')?.addEventListener('click', function() {
         if (confirm('هل أنت متأكد من إلغاء حجز الموعد؟')) {
-            window.location.href = '/appointments'; // العودة لصفحة المواعيد
+            safeRedirect('/appointments'); // العودة لصفحة المواعيد
         }
     });
 });
