@@ -189,9 +189,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 notification.textContent = data.message;
                 form.insertBefore(notification, form.firstChild);
 
+                // Sanitize redirect URL to prevent open redirect vulnerabilities
+                let safeRedirectUrl = '/appointments'; // Default safe URL
+
+                if (data.redirect_url) {
+                    // Only allow relative URLs or URLs from the same origin
+                    if (data.redirect_url.startsWith('/')) {
+                        safeRedirectUrl = data.redirect_url;
+                    } else if (data.redirect_url.startsWith('http')) {
+                        try {
+                            const url = new URL(data.redirect_url);
+                            // Verify same origin
+                            if (url.origin === window.location.origin) {
+                                safeRedirectUrl = data.redirect_url;
+                            }
+                        } catch (e) {
+                            // If URL parsing fails, use the default safe URL
+                            console.error('Invalid URL:', e);
+                        }
+                    }
+                }
+
                 // إعادة التوجيه بعد تأخير
                 setTimeout(() => {
-                    window.location.href = data.redirect_url;
+                    window.location.href = safeRedirectUrl;
                 }, 2000);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');

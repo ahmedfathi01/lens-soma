@@ -10,8 +10,15 @@
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products-show.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/quantity-pricing.css') }}?t={{ time() }}">
-
-
+    <style>
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid #ddd;
+        }
+    </style>
 </head>
 <body class="{{ auth()->check() ? 'user-logged-in' : '' }}">
     <!-- Cart overlay for the sidebar background effect -->
@@ -342,7 +349,7 @@
                                         data-color="{{ $color->color }}"
                                         onclick="selectColor(this)">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span class="color-preview" style="background-color: #{{ ltrim($color->color, '#') }}"></span>
+                                            <span class="color-preview" data-color="{{ $color->color }}"></span>
                                             <span class="color-name">{{ e($color->color) }}</span>
                                         </div>
                                         <span class="color-status">

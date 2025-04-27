@@ -770,6 +770,14 @@ function toggleCart() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Set background colors for color-preview elements
+    document.querySelectorAll('.color-preview').forEach(function(element) {
+        const color = element.getAttribute('data-color');
+        if (color) {
+            element.style.backgroundColor = color;
+        }
+    });
+
     if (document.body.classList.contains('user-logged-in')) {
         loadCartItems();
     }
