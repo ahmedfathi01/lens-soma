@@ -193,20 +193,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 let safeRedirectUrl = '/appointments'; // Default safe URL
 
                 if (data.redirect_url) {
-                    // Only allow relative URLs or URLs from the same origin
-                    if (data.redirect_url.startsWith('/')) {
-                        safeRedirectUrl = data.redirect_url;
-                    } else if (data.redirect_url.startsWith('http')) {
+                    // Validate redirect URL type
+                    if (!data.redirect_url || typeof data.redirect_url !== 'string') {
+                        console.error('Invalid redirect URL type:', typeof data.redirect_url);
+                    }
+                    // Handle absolute URLs (starting with http)
+                    else if (data.redirect_url.startsWith('http')) {
                         try {
                             const url = new URL(data.redirect_url);
-                            // Verify same origin
+                            // Strictly verify same origin
                             if (url.origin === window.location.origin) {
                                 safeRedirectUrl = data.redirect_url;
+                            } else {
+                                console.error('Blocked potential open redirect to different origin:', data.redirect_url);
                             }
                         } catch (e) {
-                            // If URL parsing fails, use the default safe URL
-                            console.error('Invalid URL:', e);
+                            console.error('Invalid URL in redirect:', e);
                         }
+                    }
+                    // Handle relative URLs
+                    else if (data.redirect_url.startsWith('/')) {
+                        safeRedirectUrl = data.redirect_url;
+                    }
+                    // Handle relative URLs without leading slash
+                    else {
+                        safeRedirectUrl = '/' + data.redirect_url;
+                    }
+                }
+
+                // Final safety check - only allow whitelisted domains if it's still external
+                if (safeRedirectUrl.startsWith('http')) {
+                    const safeOrigin = window.location.origin;
+                    if (!safeRedirectUrl.startsWith(safeOrigin)) {
+                        console.error('Blocked potential open redirect after validation:', safeRedirectUrl);
+                        safeRedirectUrl = '/appointments';
                     }
                 }
 

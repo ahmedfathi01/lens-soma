@@ -1001,17 +1001,29 @@ document.addEventListener('DOMContentLoaded', function() {
                             '/cart' :
                             (data.redirect_url || '/appointments');
 
-                        if (redirectUrl.startsWith('http')) {
+                        if (!redirectUrl || typeof redirectUrl !== 'string') {
+                            redirectUrl = '/appointments';
+                        } else if (redirectUrl.startsWith('http')) {
                             try {
                                 const url = new URL(redirectUrl);
                                 if (url.origin !== window.location.origin) {
+                                    console.error('Blocked potential open redirect to different origin:', redirectUrl);
                                     redirectUrl = '/appointments';
                                 }
                             } catch (e) {
+                                console.error('Invalid URL in redirect:', e);
                                 redirectUrl = '/appointments';
                             }
                         } else if (!redirectUrl.startsWith('/')) {
                             redirectUrl = '/' + redirectUrl;
+                        }
+
+                        if (redirectUrl.startsWith('http')) {
+                            const safeOrigin = window.location.origin;
+                            if (!redirectUrl.startsWith(safeOrigin)) {
+                                console.error('Blocked potential open redirect after validation:', redirectUrl);
+                                redirectUrl = '/appointments';
+                            }
                         }
 
                         setTimeout(() => {
