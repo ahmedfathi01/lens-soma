@@ -9,7 +9,6 @@ function getAppointmentsStatus() {
 }
 
 function updateMainImage(src, thumbnail) {
-    // Sanitize the URL to prevent XSS attacks
     const sanitizedSrc = encodeURI(src).replace(/[\\'"]/g, '');
     document.getElementById('mainImage').src = sanitizedSrc;
     document.querySelectorAll('.thumbnail-wrapper').forEach(thumb => {
@@ -20,9 +19,7 @@ function updateMainImage(src, thumbnail) {
     }
 }
 
-// Safe wrapper for updateMainImage that ensures URL sanitization
 function updateMainImageSafe(src, thumbnail) {
-    // Double sanitize the URL to prevent XSS attacks
     const sanitizedSrc = encodeURI(src).replace(/[\\'"]/g, '');
     updateMainImage(sanitizedSrc, thumbnail);
 }
@@ -95,11 +92,9 @@ function updatePageQuantity(change) {
 
 function updateWorkingHoursDisplay() {
     if (window.studioWorkingHours) {
-        // تحديث النص في شاشة الحجز
         const startTime = window.studioWorkingHours.startFormatted || '10:00';
         const endTime = window.studioWorkingHours.endFormatted || '18:00';
 
-        // تنسيق الوقت بطريقة عربية
         const formatTimeArabic = (timeStr) => {
             const [hours, minutes] = timeStr.split(':');
             const hour = parseInt(hours);
@@ -113,7 +108,6 @@ function updateWorkingHoursDisplay() {
             }
         };
 
-        // تحديث العناصر في واجهة المستخدم
         const startTimeEl = document.getElementById('studioStartTime');
         const endTimeEl = document.getElementById('studioEndTime');
 
@@ -123,7 +117,6 @@ function updateWorkingHoursDisplay() {
 }
 
 function showAppointmentModal(cartItemId) {
-    // If appointments are not enabled or not needed, just return without doing anything
     if (!getAppointmentsStatus() || !document.getElementById('needsAppointment')?.checked) {
         showNotification('تم إضافة المنتج للسلة بنجاح', 'success');
         return;
@@ -138,7 +131,6 @@ function showAppointmentModal(cartItemId) {
                 document.getElementById('addressField').classList.add('d-none');
                 document.getElementById('appointmentErrors').classList.add('d-none');
 
-                // تحميل أوقات العمل مسبقاً
                 fetchWorkingHours();
 
                 const modal = new bootstrap.Modal(document.getElementById('appointmentModal'));
@@ -150,20 +142,16 @@ function showAppointmentModal(cartItemId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('حدث خطأ أثناء التحقق من حالة الموعد', 'error');
         });
 }
 
-// دالة جديدة لتحميل أوقات العمل
 function fetchWorkingHours() {
-    // استخدام تاريخ اليوم فقط لجلب أوقات العمل
     const today = new Date().toISOString().split('T')[0];
     fetch(`/appointments/check-availability?date=${today}`)
         .then(response => response.json())
         .then(data => {
             if (data.workingHours) {
-                // تحديد ما إذا كان جدول العمل يمتد عبر منتصف الليل
                 const startHour = data.workingHours.start;
                 const endHour = data.workingHours.end;
                 const isOvernight = endHour < startHour;
@@ -173,12 +161,8 @@ function fetchWorkingHours() {
                     isOvernight: isOvernight
                 };
 
-                console.log("Studio working hours:", window.studioWorkingHours);
                 updateWorkingHoursDisplay();
             }
-        })
-        .catch(error => {
-            console.error('Error fetching working hours:', error);
         });
 }
 
@@ -210,12 +194,17 @@ function toggleAddress() {
 
 function updatePrice() {
     const priceElement = document.getElementById('product-price');
-    const originalPrice = parseFloat(document.getElementById('original-price').value);
+    const originalPriceElement = document.getElementById('original-price');
+
+    if (!priceElement && !originalPriceElement) {
+        return;
+    }
+
+    const originalPrice = originalPriceElement ? parseFloat(originalPriceElement.value) : 0;
     let currentPrice = originalPrice;
     let sizePrice = 0;
     let quantityPrice = 0;
 
-    // حساب سعر المقاس إذا تم اختياره
     if (selectedSize) {
         const sizeElement = document.querySelector(`.size-option[data-size="${selectedSize}"]`);
         if (sizeElement && sizeElement.dataset.price) {
@@ -223,28 +212,26 @@ function updatePrice() {
         }
     }
 
-    // حساب سعر الكمية إذا تم اختيارها
     if (selectedQuantityPrice) {
         quantityPrice = parseFloat(selectedQuantityPrice);
     }
 
-    // إذا تم اختيار كلاهما، نجمع السعرين معًا
     if (selectedSize && selectedQuantityId) {
         currentPrice = sizePrice + quantityPrice;
     }
-    // إذا تم اختيار واحد فقط، نستخدم سعره
     else if (selectedSize) {
         currentPrice = sizePrice;
     }
     else if (selectedQuantityId) {
         currentPrice = quantityPrice;
     }
-    // وإلا نستخدم السعر الأصلي
     else {
         currentPrice = originalPrice;
     }
 
-    priceElement.textContent = currentPrice.toFixed(2) + ' ر.س';
+    if (priceElement) {
+        priceElement.textContent = currentPrice.toFixed(2) + ' ر.س';
+    }
 }
 
 document.querySelectorAll('.size-option').forEach(el => {
@@ -262,7 +249,6 @@ function addToCart() {
     const appointmentsEnabled = getAppointmentsStatus();
     const needsAppointmentCheckbox = document.getElementById('needsAppointment');
 
-    // needsAppointment should be false if appointments are not enabled or checkbox doesn't exist
     const needsAppointment = appointmentsEnabled && needsAppointmentCheckbox?.checked;
 
     const errorMessage = document.getElementById('errorMessage');
@@ -319,7 +305,6 @@ function addToCart() {
         }
     }
 
-    // Validate color and size selections
     if ((hasColorSelectionEnabled || hasCustomColorEnabled) && !colorValue) {
         let errorText = '';
         if (hasColorSelectionEnabled && hasCustomColorEnabled) {
@@ -374,23 +359,18 @@ function addToCart() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // تحديث عدد العناصر في جميع أيقونات السلة
             document.querySelectorAll('.cart-count').forEach(element => {
                 element.textContent = data.cart_count;
             });
 
-            // إظهار رسالة النجاح دائماً
             showNotification('تم إضافة المنتج للسلة بنجاح', 'success');
 
-            // إذا كان المنتج يتطلب موعد وخاصية المواعيد مفعلة، نعرض نموذج حجز الموعد
             if (needsAppointment) {
                 showAppointmentModal(data.cart_item_id);
             }
 
-            // تحديث محتوى السلة
             loadCartItems();
 
-            // Reset form fields
             if (document.querySelector('.colors-section')) {
                 selectedColor = null;
                 document.querySelectorAll('.color-item').forEach(item => {
@@ -417,7 +397,6 @@ function addToCart() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         showNotification('حدث خطأ أثناء إضافة المنتج إلى السلة', 'error');
     })
     .finally(() => {
@@ -433,17 +412,14 @@ function showNotification(message, type = 'success') {
     notification.style.zIndex = '9999';
     notification.style.opacity = '1';
 
-    // Create a text node to prevent XSS instead of using innerHTML
     const textContent = document.createTextNode(message);
     notification.appendChild(textContent);
 
     document.body.appendChild(notification);
 
-    // إظهار الإشعار لمدة 15 ثانية
     setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.5s ease';
-        // إزالة العنصر بعد انتهاء التأثير البصري
         setTimeout(() => notification.remove(), 500);
     }, 6000);
 }
@@ -457,10 +433,8 @@ function updateCartDisplay(data) {
         element.textContent = data.count;
     });
 
-    // Safely set the total price using textContent instead of innerHTML
     cartTotal.textContent = data.total + ' ر.س';
 
-    // Clear the cart items container
     while (cartItems.firstChild) {
         cartItems.removeChild(cartItems.firstChild);
     }
@@ -489,16 +463,13 @@ function updateCartDisplay(data) {
     }
 
     data.items.forEach(item => {
-        // Create cart item element
         const itemElement = document.createElement('div');
         itemElement.className = 'cart-item';
         itemElement.dataset.itemId = item.id;
 
-        // Create item inner container
         const itemInner = document.createElement('div');
         itemInner.className = 'cart-item-inner p-3 border-bottom';
 
-        // Create remove button
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn btn btn-link text-danger';
         removeBtn.onclick = function() { removeFromCart(this, item.id); };
@@ -508,28 +479,23 @@ function updateCartDisplay(data) {
         removeBtn.appendChild(removeIcon);
         itemInner.appendChild(removeBtn);
 
-        // Create flex container for item content
         const flexContainer = document.createElement('div');
         flexContainer.className = 'd-flex gap-3';
 
-        // Create and set image
         const itemImage = document.createElement('img');
-        itemImage.src = item.image; // Assuming image URLs are already sanitized from the server
+        itemImage.src = item.image;
         itemImage.alt = item.name;
         itemImage.className = 'cart-item-image';
         flexContainer.appendChild(itemImage);
 
-        // Create details container
         const detailsContainer = document.createElement('div');
         detailsContainer.className = 'cart-item-details flex-grow-1';
 
-        // Add title
         const titleElement = document.createElement('h5');
         titleElement.className = 'cart-item-title mb-2';
         titleElement.textContent = item.name;
         detailsContainer.appendChild(titleElement);
 
-        // Add item info (color, size, appointment status)
         const infoElement = document.createElement('div');
         infoElement.className = 'cart-item-info mb-2';
 
@@ -544,10 +510,8 @@ function updateCartDisplay(data) {
             infoElement.appendChild(infoText);
         }
 
-        // Handle appointment status separately with proper DOM creation
         if (item.needs_appointment) {
             if (additionalInfo.length > 0) {
-                // Add separator if we already have info
                 const separator = document.createElement('small');
                 separator.className = 'text-muted';
                 separator.textContent = ' | ';
@@ -577,24 +541,20 @@ function updateCartDisplay(data) {
 
         detailsContainer.appendChild(infoElement);
 
-        // Add price
         const priceElement = document.createElement('div');
         priceElement.className = 'cart-item-price mb-2';
         priceElement.textContent = `${item.price} ر.س`;
         detailsContainer.appendChild(priceElement);
 
-        // Create quantity controls
         const quantityControls = document.createElement('div');
         quantityControls.className = 'quantity-controls d-flex align-items-center gap-2';
 
-        // Minus button
         const minusBtn = document.createElement('button');
         minusBtn.className = 'btn btn-sm btn-outline-secondary';
         minusBtn.textContent = '-';
         minusBtn.onclick = function() { updateCartQuantity(item.id, -1); };
         quantityControls.appendChild(minusBtn);
 
-        // Quantity input
         const quantityInput = document.createElement('input');
         quantityInput.type = 'number';
         quantityInput.value = item.quantity;
@@ -603,7 +563,6 @@ function updateCartDisplay(data) {
         quantityInput.onchange = function() { updateCartQuantity(item.id, 0, this.value); };
         quantityControls.appendChild(quantityInput);
 
-        // Plus button
         const plusBtn = document.createElement('button');
         plusBtn.className = 'btn btn-sm btn-outline-secondary';
         plusBtn.textContent = '+';
@@ -612,7 +571,6 @@ function updateCartDisplay(data) {
 
         detailsContainer.appendChild(quantityControls);
 
-        // Add subtotal
         const subtotalElement = document.createElement('div');
         subtotalElement.className = 'cart-item-subtotal mt-2 text-primary';
         subtotalElement.textContent = `الإجمالي: ${item.subtotal} ر.س`;
@@ -671,7 +629,6 @@ function updateCartQuantity(itemId, change, newValue = null) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         quantityInput.value = currentValue;
         showNotification('حدث خطأ أثناء تحديث الكمية', 'error');
     })
@@ -709,7 +666,6 @@ function removeFromCart(button, cartItemId) {
                 cartItem.style.transform = 'translateX(50px)';
             }
 
-            // تحديث عرض السلة مباشرة
             updateCartDisplay(data);
             showNotification('تم حذف المنتج من السلة بنجاح', 'success');
 
@@ -719,7 +675,6 @@ function removeFromCart(button, cartItemId) {
                 bootstrap.Modal.getInstance(appointmentModal).hide();
             }
 
-            // إعادة تحميل عناصر السلة
             loadCartItems();
         } else {
             if (cartItem) {
@@ -729,7 +684,6 @@ function removeFromCart(button, cartItemId) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         if (cartItem) {
             cartItem.style.opacity = '1';
         }
@@ -754,8 +708,7 @@ function loadCartItems() {
         .then(response => response.json())
         .then(data => {
             updateCartDisplay(data);
-        })
-        .catch(error => console.error('Error:', error));
+        });
 }
 
 function showLoginPrompt(loginUrl) {
@@ -766,6 +719,10 @@ function showLoginPrompt(loginUrl) {
 }
 
 function updateFeatureVisibility(productFeatures) {
+    if (!productFeatures) {
+        return;
+    }
+
     const colorsSection = document.querySelector('.colors-section');
     const customColorSection = document.querySelector('.custom-color-section');
     const useCustomColorCheckbox = document.getElementById('useCustomColor');
@@ -873,16 +830,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     return;
                 }
-
                 const response = await fetch(`/appointments/check-availability?date=${selectedDate}`);
                 const data = await response.json();
 
-                // استخدام الهيكل الجديد للبيانات المرسلة من الخادم
                 const appointments = data.appointments || [];
-                // حفظ أوقات العمل المستلمة من الخادم في متغير عالمي
+
                 if (data.workingHours) {
                     window.studioWorkingHours = data.workingHours;
-                    // تحديث عرض أوقات العمل في مودال الحجز
                     updateWorkingHoursDisplay();
                 }
 
@@ -891,7 +845,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const availableSlots = getAvailableTimeSlots(selectedDate, bookedTimes);
 
                 if (availableSlots.length === 0) {
-                    // هنا يعني أن جميع الفترات محجوزة (لأننا تحققنا قبل ذلك أن اليوم ليس يوم الجمعة)
                     const nextAvailableDate = await findNextAvailableDate(selectedDate);
 
                     if (nextAvailableDate) {
@@ -1048,7 +1001,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
                     errorDiv.textContent = error.message;
                     if (error.errors) {
                         const errorList = document.createElement('ul');
@@ -1068,14 +1020,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-
-    const productId = document.getElementById('product-id').value;
-    fetch(`/products/${productId}/details`)
-        .then(response => response.json())
-        .then(data => {
-            updateFeatureVisibility(data.features);
-        })
-        .catch(error => console.error('Error:', error));
 
     const urlParams = new URLSearchParams(window.location.search);
     const pendingAppointment = urlParams.get('pending_appointment');
@@ -1129,7 +1073,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
                     showNotification(error.message, 'error');
                 });
             }
@@ -1138,8 +1081,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const firstQuantityOption = document.querySelector('.quantity-option.available');
     if (firstQuantityOption) {
-        selectQuantityOption(firstQuantityOption);
+        try {
+            selectQuantityOption(firstQuantityOption);
+        } catch (error) {
+        }
     }
+
+    const productId = document.getElementById('product-id').value;
+
+    fetch(`/products/${productId}/details`)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    return { features: [] };
+                }
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.features) {
+                updateFeatureVisibility(data.features);
+            }
+        })
+        .catch(error => {
+        });
 });
 
 async function findNextAvailableDate(startDate) {
@@ -1150,26 +1116,22 @@ async function findNextAvailableDate(startDate) {
         currentDate.setDate(currentDate.getDate() + 1);
         const dateString = currentDate.toISOString().split('T')[0];
 
-        // تخطي أيام الجمعة
-        if (currentDate.getDay() === 5) { // 5 = الجمعة
-            continue; // تخطي هذا اليوم والانتقال للتالي
+        if (currentDate.getDay() === 5) {
+            continue;
         }
 
         try {
             const response = await fetch(`/appointments/check-availability?date=${dateString}`);
             const data = await response.json();
 
-            // التعامل مع الهيكل الجديد للبيانات
             const appointments = data.appointments || [];
 
-            // تحديث أوقات العمل إذا كانت موجودة في الاستجابة
             if (data.workingHours) {
                 const startHour = data.workingHours.start;
                 const endHour = data.workingHours.end;
                 const isOvernight = endHour < startHour;
 
                 window.studioWorkingHours = data.workingHours;
-                // تحديث عرض أوقات العمل في مودال الحجز
                 updateWorkingHoursDisplay();
             }
 
@@ -1180,7 +1142,6 @@ async function findNextAvailableDate(startDate) {
                 return dateString;
             }
         } catch (error) {
-            console.error('Error checking next available date:', error);
         }
     }
 
@@ -1188,7 +1149,6 @@ async function findNextAvailableDate(startDate) {
 }
 
 function getAvailableTimeSlots(date, bookedTimes) {
-    // استخدام المتغير العام للأوقات إذا كان موجوداً، وإلا استخدام القيم الافتراضية
     const workingHours = window.studioWorkingHours || {
         start: 10,
         end: 18,
@@ -1199,17 +1159,12 @@ function getAvailableTimeSlots(date, bookedTimes) {
     const selectedDate = new Date(date);
     const dayOfWeek = selectedDate.getDay();
 
-    // يوم الجمعة (dayOfWeek = 5) هو يوم الراحة الأسبوعية ولا تتوفر فيه مواعيد
     if (dayOfWeek !== 5) {
-        // التحقق إذا كان جدول العمل يمتد عبر منتصف الليل
         const isOvernight = workingHours.isOvernight || (workingHours.end < workingHours.start);
 
-        // بداية ساعات الدوام
         let startHour = workingHours.start;
-        // نهاية ساعات الدوام (إذا كان عبر منتصف الليل، فسنستخدم 24 ساعة)
         let endHour = isOvernight ? 24 : workingHours.end;
 
-        // إضافة الفترات من وقت البدء إلى منتصف الليل
         for (let hour = startHour; hour < endHour; hour++) {
             for (let minute = 0; minute < 60; minute += 30) {
                 const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -1219,7 +1174,6 @@ function getAvailableTimeSlots(date, bookedTimes) {
             }
         }
 
-        // إذا كان جدول العمل يمتد عبر منتصف الليل، نضيف الفترات من 00:00 إلى وقت النهاية
         if (isOvernight) {
             for (let hour = 0; hour < workingHours.end; hour++) {
                 for (let minute = 0; minute < 60; minute += 30) {
@@ -1248,6 +1202,10 @@ function populateTimeSelect(selectElement, availableSlots) {
 }
 
 function selectQuantityOption(option) {
+    if (!option || option.classList.contains('disabled')) {
+        return;
+    }
+
     if (option.classList.contains('active')) {
         option.classList.remove('active');
         selectedQuantityId = null;

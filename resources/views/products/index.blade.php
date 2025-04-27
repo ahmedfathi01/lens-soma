@@ -524,23 +524,19 @@
             routes: {
                 products: {
                     filter: '{{ route("products.filter") }}',
-                    details: '{{ route("products.details", ["product" => "__id__"]) }}'
+                    details: '{{ route("products.details", ["productId" => "__id__"]) }}'
                 }
             }
         };
 
-        // Add event listeners for copying coupon codes
         document.addEventListener('DOMContentLoaded', function() {
-            // Add click event to all coupon badges
             document.querySelectorAll('.copy-coupon').forEach(function(couponElement) {
                 couponElement.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    // Get the coupon code
                     const couponCode = this.getAttribute('data-coupon-code');
 
-                    // Create a temporary textarea element to copy the text
                     const textarea = document.createElement('textarea');
                     textarea.value = couponCode;
                     textarea.setAttribute('readonly', '');
@@ -548,19 +544,15 @@
                     textarea.style.left = '-9999px';
                     document.body.appendChild(textarea);
 
-                    // Select and copy the text
                     textarea.select();
                     document.execCommand('copy');
 
-                    // Remove the textarea
                     document.body.removeChild(textarea);
 
-                    // Show toast notification
                     const couponToast = new bootstrap.Toast(document.getElementById('couponToast'));
                     couponToast.show();
                 });
 
-                // Add cursor pointer style
                 couponElement.style.cursor = 'pointer';
             });
         });

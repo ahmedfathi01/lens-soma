@@ -55,7 +55,7 @@ Route::get('/services', function () {
 Route::name('products.')->group(function () {
     Route::get('/products', [ProductController::class, 'index'])->name('index');
     Route::get('/products/filter', [ProductController::class, 'filter'])->name('filter');
-    Route::get('/products/{product}/details', [ProductController::class, 'getProductDetails'])->name('details');
+    Route::get('/products/{productId}/details', [ProductController::class, 'getProductDetails'])->name('details')->where('productId', '[0-9]+');
     Route::get('/products/{product}', [ProductController::class, 'show'])->name('show');
     Route::post('/products/filter', [ProductController::class, 'filter'])->name('filter');
 });

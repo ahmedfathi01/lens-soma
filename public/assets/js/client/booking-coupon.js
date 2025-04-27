@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'success') {
                 showCouponMessage('تم تطبيق كود الخصم بنجاح!', 'success');
                 setTimeout(() => {
-                    couponMessage.innerHTML = '';
+                    couponMessage.textContent = '';
                     applyCoupon(data.coupon);
                 }, 1000);
             } else {
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
         couponDetails.classList.add('d-none');
 
         // Clear any messages
-        couponMessage.innerHTML = '';
+        couponMessage.textContent = '';
 
         // Reset any price calculations
         updateTotalWithDiscount(null);
@@ -205,15 +205,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     type === 'warning' ? 'exclamation-triangle' :
                     'exclamation-circle';
 
-        couponMessage.innerHTML = `
-            <div class="message-content text-${type}">
-                <i class="fas fa-${icon} me-2"></i>
-                <span>${message}</span>
-            </div>
-        `;
+        // Clear previous content
+        couponMessage.textContent = '';
+
+        // Create message div with proper class
+        const messageContent = document.createElement('div');
+        messageContent.className = `message-content text-${type}`;
+
+        // Create and append icon
+        const iconElement = document.createElement('i');
+        iconElement.className = `fas fa-${icon} me-2`;
+        messageContent.appendChild(iconElement);
+
+        // Add message text
+        const messageText = document.createElement('span');
+        messageText.textContent = message;
+        messageContent.appendChild(messageText);
+
+        // Append to coupon message container
+        couponMessage.appendChild(messageContent);
 
         // Animate the message appearance
-        const messageContent = couponMessage.querySelector('.message-content');
         if (messageContent) {
             messageContent.style.opacity = '0';
             messageContent.style.transform = 'translateY(10px)';

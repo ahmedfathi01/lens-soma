@@ -141,18 +141,37 @@ class ProductController extends Controller
         }
     }
 
-    public function getProductDetails(Product $product)
+    public function getProductDetails($productId)
     {
-        if (!$product->is_available) {
+        try {
+            // Find product by ID instead of using route model binding
+            // This allows the route to work regardless of authentication status
+            $product = Product::findOrFail($productId);
+
+            if (!$product->is_available) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'المنتج غير متوفر حالياً'
+                ], 404);
+            }
+
+            $product->load(['category', 'images', 'colors', 'sizes']);
+
+            $productDetails = $this->productService->getProductDetails($product);
+
+            // Ensure we return features even if empty
+            if (!isset($productDetails['features'])) {
+                $productDetails['features'] = [];
+            }
+
+            return response()->json($productDetails);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'المنتج غير متوفر حالياً'
-            ], 404);
+                'message' => 'حدث خطأ أثناء جلب تفاصيل المنتج',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $product->load(['category', 'images', 'colors', 'sizes']);
-
-        return response()->json($this->productService->getProductDetails($product));
     }
 
     public function addToCart(Request $request)

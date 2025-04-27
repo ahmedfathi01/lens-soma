@@ -62,20 +62,22 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!packageDuration || !sessionDateInput.value || !selectedPackageRadio.value) {
                 sessionTimeSelect.disabled = true;
                 sessionTimeSelect.innerHTML = '<option value="">يرجى اختيار الباقة والتاريخ أولاً</option>';
-                timeNote.innerHTML = `
-                    <i class="fas fa-info-circle"></i>
-                    يرجى اختيار الباقة والتاريخ أولاً
-                `;
+                timeNote.textContent = '';
+                const infoIcon = document.createElement('i');
+                infoIcon.className = 'fas fa-info-circle';
+                timeNote.appendChild(infoIcon);
+                timeNote.appendChild(document.createTextNode(' يرجى اختيار الباقة والتاريخ أولاً'));
                 return;
             }
 
             // عرض حالة التحميل
             sessionTimeSelect.disabled = true;
             sessionTimeSelect.innerHTML = '<option value="">جاري تحميل المواعيد المتاحة...</option>';
-            timeNote.innerHTML = `
-                <i class="fas fa-spinner fa-spin"></i>
-                جاري التحقق من المواعيد المتاحة...
-            `;
+            timeNote.textContent = '';
+            const spinnerIcon = document.createElement('i');
+            spinnerIcon.className = 'fas fa-spinner fa-spin';
+            timeNote.appendChild(spinnerIcon);
+            timeNote.appendChild(document.createTextNode(' جاري التحقق من المواعيد المتاحة...'));
 
             // تنسيق التاريخ
             const formattedDate = sessionDateInput.value.split('T')[0];
@@ -84,10 +86,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const tokenElement = document.querySelector('meta[name="csrf-token"]');
             if (!tokenElement) {
                 console.error('CSRF token not found');
-                timeNote.innerHTML = `
-                    <i class="fas fa-exclamation-circle text-danger"></i>
-                    حدث خطأ في النظام. يرجى تحديث الصفحة والمحاولة مرة أخرى
-                `;
+                timeNote.textContent = '';
+                const errorIcon = document.createElement('i');
+                errorIcon.className = 'fas fa-exclamation-circle text-danger';
+                timeNote.appendChild(errorIcon);
+                timeNote.appendChild(document.createTextNode('حدث خطأ في النظام. يرجى تحديث الصفحة والمحاولة مرة أخرى'));
                 return;
             }
 
@@ -147,53 +150,104 @@ document.addEventListener('DOMContentLoaded', function() {
                             // فقط إذا كانت هناك مواعيد متاحة للباقة البديلة
                             if (alt.available_slots && alt.available_slots.length > 0) {
                                 hasAnyValidAlternative = true;
-                                alternativePackagesHtml += `
-                                    <div class="alternative-package mb-2">
-                                        <h6>${pkg.name}</h6>
-                                        <p class="small text-muted mb-1">${pkg.description}</p>
-                                        <ul class="list-unstyled small">
-                                            <li><i class="fas fa-clock me-1"></i>المدة: ${
-                                                pkg.duration >= 60
-                                                ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
-                                                : `${pkg.duration} دقيقة`
-                                            }</li>
-                                            <li><i class="fas fa-tag me-1"></i>السعر: ${pkg.base_price} ريال</li>
-                                            <li><i class="fas fa-calendar-check me-1"></i>المواعيد المتاحة: ${alt.available_slots.length}</li>
-                                        </ul>
-                                        <button onclick="selectPackage(${pkg.id}, ${selectedServiceId})" class="btn btn-warning btn-sm">
-                                            <i class="fas fa-exchange-alt me-1"></i>
-                                            اختيار هذه الباقة
-                                        </button>
-                                    </div>
-                                `;
+                                // Create sanitized HTML for alternative packages
+                                const duration = pkg.duration >= 60
+                                    ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
+                                    : `${pkg.duration} دقيقة`;
+
+                                const div = document.createElement('div');
+                                div.className = 'alternative-package mb-2';
+
+                                const h6 = document.createElement('h6');
+                                h6.textContent = pkg.name;
+                                div.appendChild(h6);
+
+                                const p = document.createElement('p');
+                                p.className = 'small text-muted mb-1';
+                                p.textContent = pkg.description;
+                                div.appendChild(p);
+
+                                const ul = document.createElement('ul');
+                                ul.className = 'list-unstyled small';
+
+                                // Duration li
+                                const durationLi = document.createElement('li');
+                                const durationIcon = document.createElement('i');
+                                durationIcon.className = 'fas fa-clock me-1';
+                                durationLi.appendChild(durationIcon);
+                                durationLi.appendChild(document.createTextNode(`المدة: ${duration}`));
+                                ul.appendChild(durationLi);
+
+                                // Price li
+                                const priceLi = document.createElement('li');
+                                const priceIcon = document.createElement('i');
+                                priceIcon.className = 'fas fa-tag me-1';
+                                priceLi.appendChild(priceIcon);
+                                priceLi.appendChild(document.createTextNode(`السعر: ${pkg.base_price} ريال`));
+                                ul.appendChild(priceLi);
+
+                                // Available slots li
+                                const slotsLi = document.createElement('li');
+                                const slotsIcon = document.createElement('i');
+                                slotsIcon.className = 'fas fa-calendar-check me-1';
+                                slotsLi.appendChild(slotsIcon);
+                                slotsLi.appendChild(document.createTextNode(`المواعيد المتاحة: ${alt.available_slots.length}`));
+                                ul.appendChild(slotsLi);
+
+                                div.appendChild(ul);
+
+                                const button = document.createElement('button');
+                                button.className = 'btn btn-warning btn-sm';
+                                button.onclick = function() { selectPackage(pkg.id, selectedServiceId); };
+
+                                const buttonIcon = document.createElement('i');
+                                buttonIcon.className = 'fas fa-exchange-alt me-1';
+                                button.appendChild(buttonIcon);
+                                button.appendChild(document.createTextNode('اختيار هذه الباقة'));
+                                div.appendChild(button);
+
+                                alternativePackagesHtml += div.outerHTML;
                             }
                         });
 
                         // فقط عرض قسم الباقات البديلة إذا وجدت باقات متاحة فعلاً
                         if (hasAnyValidAlternative) {
-                            alertHtml += `
-                                <div class="alert alert-info mb-2">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    لا تتوفر مواعيد لهذه الباقة حالياً، ولكن هناك باقات متاحة في نفس الخدمة:
-                                    <div class="mt-2">
-                                        ${alternativePackagesHtml}
-                                    </div>
-                                </div>
-                            `;
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-info mb-2';
+
+                            const infoIcon = document.createElement('i');
+                            infoIcon.className = 'fas fa-info-circle me-2';
+                            alertDiv.appendChild(infoIcon);
+
+                            alertDiv.appendChild(document.createTextNode('لا تتوفر مواعيد لهذه الباقة حالياً، ولكن هناك باقات متاحة في نفس الخدمة:'));
+
+                            const alternativesDiv = document.createElement('div');
+                            alternativesDiv.className = 'mt-2';
+                            alternativesDiv.innerHTML = alternativePackagesHtml; // This is safer now as we built it with DOM methods
+                            alertDiv.appendChild(alternativesDiv);
+
+                            alertHtml += alertDiv.outerHTML;
                         }
                     }
 
                     // إذا كان هناك يوم متاح قادم
                     if (data.slots && data.slots.next_available_date) {
-                        alertHtml += `
-                            <div class="alert alert-warning">
-                                <i class="fas fa-calendar-alt me-2"></i>
-                                أقرب موعد متاح هو يوم ${data.slots.next_available_formatted_date}
-                                <button onclick="selectDate('${data.slots.next_available_date}')" class="btn btn-warning btn-sm float-end">
-                                    اختيار هذا اليوم
-                                </button>
-                            </div>
-                        `;
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-warning';
+
+                        const calendarIcon = document.createElement('i');
+                        calendarIcon.className = 'fas fa-calendar-alt me-2';
+                        alertDiv.appendChild(calendarIcon);
+
+                        alertDiv.appendChild(document.createTextNode(`أقرب موعد متاح هو يوم ${data.slots.next_available_formatted_date}`));
+
+                        const button = document.createElement('button');
+                        button.className = 'btn btn-warning btn-sm float-end';
+                        button.onclick = function() { selectDate(data.slots.next_available_date); };
+                        button.textContent = 'اختيار هذا اليوم';
+                        alertDiv.appendChild(button);
+
+                        alertHtml += alertDiv.outerHTML;
                     }
 
                     // إضافة الرسائل إلى الصفحة
@@ -219,14 +273,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
 
                         sessionTimeSelect.disabled = false;
-                        timeNote.innerHTML = `
-                            <i class="fas fa-info-circle"></i>
-                            المواعيد المتاحة تأخذ في الاعتبار مدة الجلسة (${
-                                packageDuration >= 60
-                                ? `${Math.floor(packageDuration / 60)} ساعة${packageDuration % 60 > 0 ? ` و ${packageDuration % 60} دقيقة` : ''}`
-                                : `${packageDuration} دقيقة`
-                            })
-                        `;
+
+                        // Clear timeNote and add content safely
+                        timeNote.textContent = '';
+                        const infoIcon = document.createElement('i');
+                        infoIcon.className = 'fas fa-info-circle';
+                        timeNote.appendChild(infoIcon);
+
+                        const duration = packageDuration >= 60
+                            ? `${Math.floor(packageDuration / 60)} ساعة${packageDuration % 60 > 0 ? ` و ${packageDuration % 60} دقيقة` : ''}`
+                            : `${packageDuration} دقيقة`;
+
+                        timeNote.appendChild(document.createTextNode(` المواعيد المتاحة تأخذ في الاعتبار مدة الجلسة (${duration})`));
 
                         // إزالة أي alert سابق
                         const timeContainer = sessionTimeSelect.closest('.col-md-6');
@@ -235,27 +293,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     } else {
                         sessionTimeSelect.disabled = true;
-                        timeNote.innerHTML = `
-                            <i class="fas fa-exclamation-circle text-danger"></i>
-                            لا توجد مواعيد متاحة في هذا اليوم
-                        `;
+
+                        // Clear timeNote and add error content safely
+                        timeNote.textContent = '';
+                        const errorIcon = document.createElement('i');
+                        errorIcon.className = 'fas fa-exclamation-circle text-danger';
+                        timeNote.appendChild(errorIcon);
+                        timeNote.appendChild(document.createTextNode(' لا توجد مواعيد متاحة في هذا اليوم'));
                     }
                 } else {
                     sessionTimeSelect.disabled = true;
-                    timeNote.innerHTML = `
-                        <i class="fas fa-exclamation-circle text-danger"></i>
-                        ${data.message || 'حدث خطأ أثناء تحميل المواعيد المتاحة'}
-                    `;
+
+                    // Clear timeNote and add error message safely
+                    timeNote.textContent = '';
+                    const errorIcon = document.createElement('i');
+                    errorIcon.className = 'fas fa-exclamation-circle text-danger';
+                    timeNote.appendChild(errorIcon);
+                    timeNote.appendChild(document.createTextNode(` ${data.message || 'حدث خطأ أثناء تحميل المواعيد المتاحة'}`));
                 }
             })
             .catch(error => {
                 console.error('Error details:', error);
                 sessionTimeSelect.disabled = true;
                 sessionTimeSelect.innerHTML = '<option value="">حدث خطأ أثناء تحميل المواعيد</option>';
-                timeNote.innerHTML = `
-                    <i class="fas fa-exclamation-circle text-danger"></i>
-                    حدث خطأ أثناء تحميل المواعيد المتاحة. يرجى المحاولة مرة أخرى
-                `;
+
+                // Clear timeNote and add error message safely
+                timeNote.textContent = '';
+                const errorIcon = document.createElement('i');
+                errorIcon.className = 'fas fa-exclamation-circle text-danger';
+                timeNote.appendChild(errorIcon);
+                timeNote.appendChild(document.createTextNode(' حدث خطأ أثناء تحميل المواعيد المتاحة. يرجى المحاولة مرة أخرى'));
             });
         }
 
