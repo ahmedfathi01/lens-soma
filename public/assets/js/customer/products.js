@@ -510,11 +510,17 @@ function resetFilters() {
     applyFilters();
 }
 
-
 function showNotification(message, type = 'success') {
+    // Sanitize the message by creating a text node instead of using textContent directly
+    const sanitizedMessage = document.createTextNode(message);
+
+    // Validate the type parameter to only allow specific values
+    const allowedTypes = ['success', 'error', 'warning', 'info'];
+    const safeType = allowedTypes.includes(type) ? type : 'success';
+
     const notification = document.createElement('div');
-    notification.className = `alert alert-${type} notification-toast`;
-    notification.textContent = message;
+    notification.className = `alert alert-${safeType} notification-toast`;
+    notification.appendChild(sanitizedMessage);
     document.body.appendChild(notification);
 
     // تأثير ظهور الإشعار
@@ -626,7 +632,8 @@ function updateCartDisplay(data) {
                 appointmentSpan.appendChild(checkIcon);
                 appointmentSpan.appendChild(document.createTextNode(' تم حجز موعد'));
 
-                additionalInfo.push(appointmentSpan.outerHTML);
+                // Safely add the DOM element to the array instead of HTML string
+                additionalInfo.push(appointmentSpan);
             } else {
                 const pendingSpan = document.createElement('span');
                 pendingSpan.className = 'text-warning';
@@ -636,7 +643,8 @@ function updateCartDisplay(data) {
                 pendingSpan.appendChild(clockIcon);
                 pendingSpan.appendChild(document.createTextNode(' بانتظار حجز موعد'));
 
-                additionalInfo.push(pendingSpan.outerHTML);
+                // Safely add the DOM element to the array instead of HTML string
+                additionalInfo.push(pendingSpan);
             }
         }
 
@@ -646,10 +654,19 @@ function updateCartDisplay(data) {
 
             const infoSmall = document.createElement('small');
             infoSmall.className = 'text-muted';
-            // Use a safer approach for the additional info
-            const infoText = document.createElement('span');
-            infoText.innerHTML = additionalInfo.join(' | ');
-            infoSmall.appendChild(infoText);
+
+            // Create a safer approach for joining the additional info
+            additionalInfo.forEach((info, index) => {
+                if (index > 0) {
+                    infoSmall.appendChild(document.createTextNode(' | '));
+                }
+
+                if (typeof info === 'string') {
+                    infoSmall.appendChild(document.createTextNode(info));
+                } else {
+                    infoSmall.appendChild(info);
+                }
+            });
 
             infoDiv.appendChild(infoSmall);
             detailsDiv.appendChild(infoDiv);
