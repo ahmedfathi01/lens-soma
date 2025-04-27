@@ -9,13 +9,22 @@ function getAppointmentsStatus() {
 }
 
 function updateMainImage(src, thumbnail) {
-    document.getElementById('mainImage').src = src;
+    // Sanitize the URL to prevent XSS attacks
+    const sanitizedSrc = encodeURI(src).replace(/[\\'"]/g, '');
+    document.getElementById('mainImage').src = sanitizedSrc;
     document.querySelectorAll('.thumbnail-wrapper').forEach(thumb => {
         thumb.classList.remove('active');
     });
     if (thumbnail) {
         thumbnail.classList.add('active');
     }
+}
+
+// Safe wrapper for updateMainImage that ensures URL sanitization
+function updateMainImageSafe(src, thumbnail) {
+    // Double sanitize the URL to prevent XSS attacks
+    const sanitizedSrc = encodeURI(src).replace(/[\\'"]/g, '');
+    updateMainImage(sanitizedSrc, thumbnail);
 }
 
 function selectColor(element) {
@@ -423,7 +432,11 @@ function showNotification(message, type = 'success') {
     notification.className = `alert alert-${type} notification-toast position-fixed top-0 start-50 translate-middle-x mt-3`;
     notification.style.zIndex = '9999';
     notification.style.opacity = '1';
-    notification.innerHTML = message;
+
+    // Create a text node to prevent XSS instead of using innerHTML
+    const textContent = document.createTextNode(message);
+    notification.appendChild(textContent);
+
     document.body.appendChild(notification);
 
     // إظهار الإشعار لمدة 15 ثانية
@@ -444,63 +457,171 @@ function updateCartDisplay(data) {
         element.textContent = data.count;
     });
 
+    // Safely set the total price using textContent instead of innerHTML
     cartTotal.textContent = data.total + ' ر.س';
 
-    cartItems.innerHTML = '';
+    // Clear the cart items container
+    while (cartItems.firstChild) {
+        cartItems.removeChild(cartItems.firstChild);
+    }
 
     if (!data.items || data.items.length === 0) {
-        cartItems.innerHTML = `
-            <div class="cart-empty text-center p-4">
-                <i class="fas fa-shopping-cart fa-3x mb-3"></i>
-                <p class="mb-3">السلة فارغة</p>
-                <a href="/products" class="btn btn-primary">تصفح المنتجات</a>
-            </div>
-        `;
+        const emptyCartDiv = document.createElement('div');
+        emptyCartDiv.className = 'cart-empty text-center p-4';
+
+        const cartIcon = document.createElement('i');
+        cartIcon.className = 'fas fa-shopping-cart fa-3x mb-3';
+        emptyCartDiv.appendChild(cartIcon);
+
+        const emptyText = document.createElement('p');
+        emptyText.className = 'mb-3';
+        emptyText.textContent = 'السلة فارغة';
+        emptyCartDiv.appendChild(emptyText);
+
+        const browseLink = document.createElement('a');
+        browseLink.href = '/products';
+        browseLink.className = 'btn btn-primary';
+        browseLink.textContent = 'تصفح المنتجات';
+        emptyCartDiv.appendChild(browseLink);
+
+        cartItems.appendChild(emptyCartDiv);
         return;
     }
 
     data.items.forEach(item => {
+        // Create cart item element
         const itemElement = document.createElement('div');
         itemElement.className = 'cart-item';
         itemElement.dataset.itemId = item.id;
 
+        // Create item inner container
+        const itemInner = document.createElement('div');
+        itemInner.className = 'cart-item-inner p-3 border-bottom';
+
+        // Create remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn btn btn-link text-danger';
+        removeBtn.onclick = function() { removeFromCart(this, item.id); };
+
+        const removeIcon = document.createElement('i');
+        removeIcon.className = 'fas fa-times';
+        removeBtn.appendChild(removeIcon);
+        itemInner.appendChild(removeBtn);
+
+        // Create flex container for item content
+        const flexContainer = document.createElement('div');
+        flexContainer.className = 'd-flex gap-3';
+
+        // Create and set image
+        const itemImage = document.createElement('img');
+        itemImage.src = item.image; // Assuming image URLs are already sanitized from the server
+        itemImage.alt = item.name;
+        itemImage.className = 'cart-item-image';
+        flexContainer.appendChild(itemImage);
+
+        // Create details container
+        const detailsContainer = document.createElement('div');
+        detailsContainer.className = 'cart-item-details flex-grow-1';
+
+        // Add title
+        const titleElement = document.createElement('h5');
+        titleElement.className = 'cart-item-title mb-2';
+        titleElement.textContent = item.name;
+        detailsContainer.appendChild(titleElement);
+
+        // Add item info (color, size, appointment status)
+        const infoElement = document.createElement('div');
+        infoElement.className = 'cart-item-info mb-2';
+
         const additionalInfo = [];
         if (item.color) additionalInfo.push(`اللون: ${item.color}`);
         if (item.size) additionalInfo.push(`المقاس: ${item.size}`);
-        if (item.needs_appointment) {
-            additionalInfo.push(item.has_appointment ?
-                '<span class="text-success"><i class="fas fa-check-circle"></i> تم حجز موعد</span>' :
-                '<span class="text-warning"><i class="fas fa-clock"></i> بانتظار حجز موعد</span>');
+
+        if (additionalInfo.length > 0) {
+            const infoText = document.createElement('small');
+            infoText.className = 'text-muted';
+            infoText.textContent = additionalInfo.join(' | ');
+            infoElement.appendChild(infoText);
         }
 
-        itemElement.innerHTML = `
-            <div class="cart-item-inner p-3 border-bottom">
-                <button class="remove-btn btn btn-link text-danger" onclick="removeFromCart(this, ${item.id})">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="d-flex gap-3">
-                    <img src="${item.image}" alt="${item.name}" class="cart-item-image">
-                    <div class="cart-item-details flex-grow-1">
-                        <h5 class="cart-item-title mb-2">${item.name}</h5>
-                        <div class="cart-item-info mb-2">
-                            ${additionalInfo.length > 0 ?
-                                `<small class="text-muted">${additionalInfo.join(' | ')}</small>` : ''}
-                        </div>
-                        <div class="cart-item-price mb-2">${item.price} ر.س</div>
-                        <div class="quantity-controls d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="updateCartQuantity(${item.id}, -1)">-</button>
-                            <input type="number" value="${item.quantity}" min="1"
-                                onchange="updateCartQuantity(${item.id}, 0, this.value)"
-                                class="form-control form-control-sm quantity-input">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="updateCartQuantity(${item.id}, 1)">+</button>
-                        </div>
-                        <div class="cart-item-subtotal mt-2 text-primary">
-                            الإجمالي: ${item.subtotal} ر.س
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // Handle appointment status separately with proper DOM creation
+        if (item.needs_appointment) {
+            if (additionalInfo.length > 0) {
+                // Add separator if we already have info
+                const separator = document.createElement('small');
+                separator.className = 'text-muted';
+                separator.textContent = ' | ';
+                infoElement.appendChild(separator);
+            }
+
+            const statusSpan = document.createElement('span');
+
+            if (item.has_appointment) {
+                statusSpan.className = 'text-success';
+                const checkIcon = document.createElement('i');
+                checkIcon.className = 'fas fa-check-circle';
+                statusSpan.appendChild(checkIcon);
+                statusSpan.appendChild(document.createTextNode(' تم حجز موعد'));
+            } else {
+                statusSpan.className = 'text-warning';
+                const clockIcon = document.createElement('i');
+                clockIcon.className = 'fas fa-clock';
+                statusSpan.appendChild(clockIcon);
+                statusSpan.appendChild(document.createTextNode(' بانتظار حجز موعد'));
+            }
+
+            const statusWrapper = document.createElement('small');
+            statusWrapper.appendChild(statusSpan);
+            infoElement.appendChild(statusWrapper);
+        }
+
+        detailsContainer.appendChild(infoElement);
+
+        // Add price
+        const priceElement = document.createElement('div');
+        priceElement.className = 'cart-item-price mb-2';
+        priceElement.textContent = `${item.price} ر.س`;
+        detailsContainer.appendChild(priceElement);
+
+        // Create quantity controls
+        const quantityControls = document.createElement('div');
+        quantityControls.className = 'quantity-controls d-flex align-items-center gap-2';
+
+        // Minus button
+        const minusBtn = document.createElement('button');
+        minusBtn.className = 'btn btn-sm btn-outline-secondary';
+        minusBtn.textContent = '-';
+        minusBtn.onclick = function() { updateCartQuantity(item.id, -1); };
+        quantityControls.appendChild(minusBtn);
+
+        // Quantity input
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'number';
+        quantityInput.value = item.quantity;
+        quantityInput.min = '1';
+        quantityInput.className = 'form-control form-control-sm quantity-input';
+        quantityInput.onchange = function() { updateCartQuantity(item.id, 0, this.value); };
+        quantityControls.appendChild(quantityInput);
+
+        // Plus button
+        const plusBtn = document.createElement('button');
+        plusBtn.className = 'btn btn-sm btn-outline-secondary';
+        plusBtn.textContent = '+';
+        plusBtn.onclick = function() { updateCartQuantity(item.id, 1); };
+        quantityControls.appendChild(plusBtn);
+
+        detailsContainer.appendChild(quantityControls);
+
+        // Add subtotal
+        const subtotalElement = document.createElement('div');
+        subtotalElement.className = 'cart-item-subtotal mt-2 text-primary';
+        subtotalElement.textContent = `الإجمالي: ${item.subtotal} ر.س`;
+        detailsContainer.appendChild(subtotalElement);
+
+        flexContainer.appendChild(detailsContainer);
+        itemInner.appendChild(flexContainer);
+        itemElement.appendChild(itemInner);
+
         cartItems.appendChild(itemElement);
     });
 }

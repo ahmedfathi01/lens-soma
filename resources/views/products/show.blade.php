@@ -185,7 +185,7 @@
                                 <div class="image-thumbnails">
                                     @foreach($product->images as $image)
                                         <div class="thumbnail-wrapper {{ $image->is_primary ? 'active' : '' }}"
-                                            onclick="updateMainImage('{{ url('storage/' . $image->image_path) }}', this)">
+                                            onclick="updateMainImageSafe('{{ url('storage/' . $image->image_path) }}', this)">
                                             <img src="{{ url('storage/' . $image->image_path) }}"
                                                 alt="Product thumbnail"
                                                 class="thumbnail-image">
@@ -341,8 +341,8 @@
                                         data-color="{{ $color->color }}"
                                         onclick="selectColor(this)">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span class="color-preview" style="background-color: {{ $color->color }};"></span>
-                                            <span class="color-name">{{ $color->color }}</span>
+                                            <span class="color-preview" style="background-color: {{ e($color->color) }};"></span>
+                                            <span class="color-name">{{ e($color->color) }}</span>
                                         </div>
                                         <span class="color-status">
                                             @if($color->is_available)
@@ -417,7 +417,11 @@
                             <div class="quantity-options">
                                 @foreach($product->quantities as $quantity)
                                     <div class="quantity-option {{ $quantity->is_available ? 'available' : 'disabled' }}"
-                                        onclick="{{ $quantity->is_available ? 'selectQuantityOption(this)' : 'return false' }}"
+                                        @if($quantity->is_available)
+                                        onclick="selectQuantityOption(this)"
+                                        @else
+                                        onclick="return false"
+                                        @endif
                                         data-quantity-id="{{ $quantity->id }}"
                                         data-quantity-value="{{ $quantity->quantity_value }}"
                                         data-price="{{ $quantity->price }}">
@@ -498,7 +502,7 @@
                     @else
                         <!-- Login to Order Button -->
                         <button class="btn btn-primary btn-lg w-100 mb-4"
-                                onclick="showLoginPrompt('{{ route('login') }}')"
+                                onclick="showLoginPrompt('{{ e(route('login')) }}')"
                                 type="button">
                             <i class="fas fa-shopping-cart me-2"></i>
                             تسجيل الدخول للطلب
@@ -725,7 +729,10 @@
     @if($pendingAppointment)
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            showAppointmentModal({{ $pendingAppointment->id }});
+            var safeId = parseInt('{{ $pendingAppointment->id }}', 10);
+            if (!isNaN(safeId)) {
+                showAppointmentModal(safeId);
+            }
         });
     </script>
     @endif
