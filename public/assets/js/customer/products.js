@@ -863,15 +863,10 @@ function removeFromCart(button, cartItemId) {
         if (data.success) {
             cartItem.style.opacity = '0';
             cartItem.style.transform = 'translateX(50px)';
-
-            // تحديث عرض السلة مباشرة
             updateCartDisplay(data);
-
-            // إضافة تأخير قصير قبل إعادة تحميل عناصر السلة
             setTimeout(() => {
                 loadCartItems();
             }, 300);
-
             showNotification('تم حذف المنتج من السلة بنجاح', 'success');
         } else {
             cartItem.style.opacity = '1';
@@ -907,12 +902,7 @@ function loadCartItems() {
 function showLoginPrompt(loginUrl) {
     const currentUrl = window.location.href;
     const modal = new bootstrap.Modal(document.getElementById('loginPromptModal'));
-
-    // Validar la URL de inicio de sesión y la URL de redirección
     const validatedLoginUrl = validateRedirectUrl(loginUrl);
-
-    // Configurar la URL del botón de inicio de sesión con validación
     document.getElementById('loginButton').href = `${validatedLoginUrl}?redirect=${encodeURIComponent(currentUrl)}`;
-
     modal.show();
 }

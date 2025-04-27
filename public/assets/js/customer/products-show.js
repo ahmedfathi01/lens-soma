@@ -115,37 +115,29 @@ function updateWorkingHoursDisplay() {
         if (endTimeEl) endTimeEl.textContent = formatTimeArabic(endTime);
     }
 }
-
 function validateRedirectUrl(url) {
-    // إذا كانت القيمة فارغة، ارجع المسار الافتراضي الآمن
     if (!url) return '/';
 
-    // تحقق أولاً من مسارات داخلية محددة بشكل صريح (whitelist)
     const safeInternalPaths = ['/cart', '/appointments', '/products', '/'];
     if (safeInternalPaths.includes(url)) {
         return url;
     }
 
     try {
-        // للروابط المطلقة، تحقق مما إذا كانت تنتمي لنطاقنا
         if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
-            // حظر URL مطلقة خارجية تمامًا
             console.error('تم حظر محاولة إعادة توجيه خارجية:', url);
             return '/';
         }
-        // للمسارات النسبية، اسمح فقط بتلك التي تبدأ بشرطة مائلة واحدة
         else if (!url.startsWith('/')) {
             console.error('تم حظر مسار نسبي غير صالح:', url);
             return '/';
         }
 
-        // حظر المسارات التي تبدأ بشرطتين مائلتين
         if (url.startsWith('//')) {
             console.error('تم حظر محاولة حقن بروتوكول نسبي:', url);
             return '/';
         }
 
-        // فحص إضافي للحماية من حقن البروتوكولات الضارة
         const lowerUrl = url.toLowerCase().trim();
         if (lowerUrl.startsWith('javascript:') ||
             lowerUrl.startsWith('data:') ||
@@ -154,10 +146,8 @@ function validateRedirectUrl(url) {
             return '/';
         }
 
-        // اجتاز URL جميع الفحوصات الأمنية
         return url;
     } catch (e) {
-        // إذا فشل تحليل URL، ارجع المسار الافتراضي الآمن
         console.error('خطأ في التحقق من URL:', e);
         return '/';
     }
@@ -1322,23 +1312,16 @@ function toggleCustomColor(checkbox) {
         customColorInput.disabled = true;
     }
 }
-
-// استبدال دالة safeRedirect لتستخدم نهجًا أكثر أمانًا
 function safeRedirect(url) {
-    // تطبيق التحقق الأمني
     const safeUrl = validateRedirectUrl(url);
 
-    // استخدام وظيفة موجهة للأمان بدلاً من التعيين المباشر لـ window.location.href
     if (safeUrl.startsWith('/')) {
-        // مسار نسبي آمن داخل تطبيقنا
-        window.location.replace(safeUrl); // استخدام replace بدلاً من href
+        window.location.replace(safeUrl);
     } else {
-        // ضمان إضافي للأمان، لا يجب أن نصل إلى هنا
         window.location.replace('/');
     }
 }
 
-// تحديث معالجة زر إلغاء الموعد
 cancelAppointmentBtn.addEventListener('click', function() {
     if (confirm('هل أنت متأكد من إلغاء حجز الموعد؟ سيتم إزالة المنتج من السلة.')) {
         const cartItemId = document.getElementById('cart_item_id').value;
@@ -1361,7 +1344,6 @@ cancelAppointmentBtn.addEventListener('click', function() {
 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.has('pending_appointment')) {
-                    // استخدام إعادة توجيه آمنة
                     safeRedirect('/cart');
                 } else {
                     bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
