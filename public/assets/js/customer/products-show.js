@@ -117,39 +117,48 @@ function updateWorkingHoursDisplay() {
 }
 
 function validateRedirectUrl(url) {
-    // If no URL is provided, return a safe default
+    // إذا كانت القيمة فارغة، ارجع المسار الافتراضي الآمن
     if (!url) return '/';
 
+    // تحقق أولاً من مسارات داخلية محددة بشكل صريح (whitelist)
+    const safeInternalPaths = ['/cart', '/appointments', '/products', '/'];
+    if (safeInternalPaths.includes(url)) {
+        return url;
+    }
+
     try {
-        // For absolute URLs, check if they belong to our domain
+        // للروابط المطلقة، تحقق مما إذا كانت تنتمي لنطاقنا
         if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
-            const urlObj = new URL(url, window.location.origin);
-            // Only allow URLs from our domain
-            if (urlObj.origin !== window.location.origin) {
-                console.error('Potential open redirect blocked:', url);
-                return '/';
-            }
+            // حظر URL مطلقة خارجية تمامًا
+            console.error('تم حظر محاولة إعادة توجيه خارجية:', url);
+            return '/';
         }
-        // For relative URLs, only allow those starting with a single slash
-        else if (!url.startsWith('/') || url.startsWith('//')) {
-            console.error('Invalid relative URL blocked:', url);
+        // للمسارات النسبية، اسمح فقط بتلك التي تبدأ بشرطة مائلة واحدة
+        else if (!url.startsWith('/')) {
+            console.error('تم حظر مسار نسبي غير صالح:', url);
             return '/';
         }
 
-        // Additional checks for potential JavaScript protocol or data URL injection
-        const sanitizedUrl = url.toLowerCase().trim();
-        if (sanitizedUrl.startsWith('javascript:') ||
-            sanitizedUrl.startsWith('data:') ||
-            sanitizedUrl.startsWith('vbscript:')) {
-            console.error('Potential protocol injection blocked:', url);
+        // حظر المسارات التي تبدأ بشرطتين مائلتين
+        if (url.startsWith('//')) {
+            console.error('تم حظر محاولة حقن بروتوكول نسبي:', url);
             return '/';
         }
 
-        // URL passed all security checks
+        // فحص إضافي للحماية من حقن البروتوكولات الضارة
+        const lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith('javascript:') ||
+            lowerUrl.startsWith('data:') ||
+            lowerUrl.startsWith('vbscript:')) {
+            console.error('تم حظر محاولة حقن بروتوكول:', url);
+            return '/';
+        }
+
+        // اجتاز URL جميع الفحوصات الأمنية
         return url;
     } catch (e) {
-        // If URL parsing fails, return a safe default
-        console.error('URL validation error:', e);
+        // إذا فشل تحليل URL، ارجع المسار الافتراضي الآمن
+        console.error('خطأ في التحقق من URL:', e);
         return '/';
     }
 }
@@ -1314,17 +1323,56 @@ function toggleCustomColor(checkbox) {
     }
 }
 
-// Add this at the top of the file after the existing validation function
-// Create a safer version of window.location.href
+// استبدال دالة safeRedirect لتستخدم نهجًا أكثر أمانًا
 function safeRedirect(url) {
+    // تطبيق التحقق الأمني
     const safeUrl = validateRedirectUrl(url);
-    window.location.href = safeUrl;
+
+    // استخدام وظيفة موجهة للأمان بدلاً من التعيين المباشر لـ window.location.href
+    if (safeUrl.startsWith('/')) {
+        // مسار نسبي آمن داخل تطبيقنا
+        window.location.replace(safeUrl); // استخدام replace بدلاً من href
+    } else {
+        // ضمان إضافي للأمان، لا يجب أن نصل إلى هنا
+        window.location.replace('/');
+    }
 }
 
-// Override window.location.href with a safer implementation
-Object.defineProperty(window.location, 'safehref', {
-    set: function(url) {
-        const safeUrl = validateRedirectUrl(url);
-        this.href = safeUrl;
+// تحديث معالجة زر إلغاء الموعد
+cancelAppointmentBtn.addEventListener('click', function() {
+    if (confirm('هل أنت متأكد من إلغاء حجز الموعد؟ سيتم إزالة المنتج من السلة.')) {
+        const cartItemId = document.getElementById('cart_item_id').value;
+
+        fetch(`/cart/remove/${cartItemId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.querySelectorAll('.cart-count').forEach(el => {
+                    el.textContent = data.count;
+                });
+
+                showNotification('تم إلغاء الموعد وإزالة المنتج من السلة', 'success');
+
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.has('pending_appointment')) {
+                    // استخدام إعادة توجيه آمنة
+                    safeRedirect('/cart');
+                } else {
+                    bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
+                    loadCartItems();
+                }
+            } else {
+                throw new Error(data.message || 'حدث خطأ أثناء إلغاء الموعد');
+            }
+        })
+        .catch(error => {
+            showNotification(error.message, 'error');
+        });
     }
 });

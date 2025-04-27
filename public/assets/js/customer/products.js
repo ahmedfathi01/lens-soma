@@ -7,6 +7,69 @@ let activeFilters = {
     has_discount: false
 };
 
+// Función para validar URLs y prevenir redirecciones abiertas
+function validateRedirectUrl(url) {
+    // Si no hay URL, devolver ruta predeterminada segura
+    if (!url) return '/products';
+
+    // Verificar primero rutas internas específicas (lista blanca)
+    const safeInternalPaths = ['/cart', '/appointments', '/products', '/account', '/'];
+    if (safeInternalPaths.includes(url)) {
+        return url;
+    }
+
+    try {
+        // Para URLs absolutas, verificar si pertenecen a nuestro dominio
+        if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
+            // Bloquear URLs absolutas externas
+            console.error('Intento de redirección externa bloqueado:', url);
+            return '/products';
+        }
+        // Para rutas relativas, permitir solo las que comienzan con una barra
+        else if (!url.startsWith('/')) {
+            console.error('Ruta relativa inválida bloqueada:', url);
+            return '/products';
+        }
+
+        // Bloquear rutas que comienzan con doble barra
+        if (url.startsWith('//')) {
+            console.error('Intento de inyección de protocolo relativo bloqueado:', url);
+            return '/products';
+        }
+
+        // Verificación adicional para protección contra inyección de protocolos dañinos
+        const lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith('javascript:') ||
+            lowerUrl.startsWith('data:') ||
+            lowerUrl.startsWith('vbscript:')) {
+            console.error('Intento de inyección de protocolo bloqueado:', url);
+            return '/products';
+        }
+
+        // La URL pasó todas las verificaciones de seguridad
+        return url;
+    } catch (e) {
+        // Si el análisis de URL falla, devolver ruta predeterminada segura
+        console.error('Error en la validación de URL:', e);
+        return '/products';
+    }
+}
+
+// Función para redirección segura
+function safeRedirect(url) {
+    // Aplicar validación de seguridad
+    const safeUrl = validateRedirectUrl(url);
+
+    // Usar método más seguro que la asignación directa a window.location.href
+    if (safeUrl.startsWith('/')) {
+        // Ruta relativa segura dentro de nuestra aplicación
+        window.location.replace(safeUrl); // Usar replace en lugar de href
+    } else {
+        // Garantía adicional de seguridad, no deberíamos llegar aquí
+        window.location.replace('/products');
+    }
+}
+
 // Initialize when document is ready
 document.addEventListener('DOMContentLoaded', function() {
     initializeFilters();
@@ -844,6 +907,12 @@ function loadCartItems() {
 function showLoginPrompt(loginUrl) {
     const currentUrl = window.location.href;
     const modal = new bootstrap.Modal(document.getElementById('loginPromptModal'));
-    document.getElementById('loginButton').href = `${loginUrl}?redirect=${encodeURIComponent(currentUrl)}`;
+
+    // Validar la URL de inicio de sesión y la URL de redirección
+    const validatedLoginUrl = validateRedirectUrl(loginUrl);
+
+    // Configurar la URL del botón de inicio de sesión con validación
+    document.getElementById('loginButton').href = `${validatedLoginUrl}?redirect=${encodeURIComponent(currentUrl)}`;
+
     modal.show();
 }

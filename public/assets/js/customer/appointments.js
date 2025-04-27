@@ -1,46 +1,64 @@
 // Add URL validation function at the top of the file
 function validateRedirectUrl(url) {
-    // If no URL is provided, return a safe default
+    // إذا كانت القيمة فارغة، ارجع المسار الافتراضي الآمن
     if (!url) return '/appointments';
 
+    // تحقق أولاً من مسارات داخلية محددة بشكل صريح (whitelist)
+    const safeInternalPaths = ['/cart', '/appointments', '/products', '/account', '/'];
+    if (safeInternalPaths.includes(url)) {
+        return url;
+    }
+
     try {
-        // For absolute URLs, check if they belong to our domain
+        // للروابط المطلقة، تحقق مما إذا كانت تنتمي لنطاقنا
         if (url.indexOf('://') > -1 || url.indexOf('//') === 0) {
-            const urlObj = new URL(url, window.location.origin);
-            // Only allow URLs from our domain
-            if (urlObj.origin !== window.location.origin) {
-                console.error('Potential open redirect blocked:', url);
-                return '/appointments';
-            }
+            // حظر URL مطلقة خارجية تمامًا
+            console.error('تم حظر محاولة إعادة توجيه خارجية:', url);
+            return '/appointments';
         }
-        // For relative URLs, only allow those starting with a single slash
-        else if (!url.startsWith('/') || url.startsWith('//')) {
-            console.error('Invalid relative URL blocked:', url);
+        // للمسارات النسبية، اسمح فقط بتلك التي تبدأ بشرطة مائلة واحدة
+        else if (!url.startsWith('/')) {
+            console.error('تم حظر مسار نسبي غير صالح:', url);
             return '/appointments';
         }
 
-        // Additional checks for potential JavaScript protocol or data URL injection
-        const sanitizedUrl = url.toLowerCase().trim();
-        if (sanitizedUrl.startsWith('javascript:') ||
-            sanitizedUrl.startsWith('data:') ||
-            sanitizedUrl.startsWith('vbscript:')) {
-            console.error('Potential protocol injection blocked:', url);
+        // حظر المسارات التي تبدأ بشرطتين مائلتين
+        if (url.startsWith('//')) {
+            console.error('تم حظر محاولة حقن بروتوكول نسبي:', url);
             return '/appointments';
         }
 
-        // URL passed all security checks
+        // فحص إضافي للحماية من حقن البروتوكولات الضارة
+        const lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith('javascript:') ||
+            lowerUrl.startsWith('data:') ||
+            lowerUrl.startsWith('vbscript:')) {
+            console.error('تم حظر محاولة حقن بروتوكول:', url);
+            return '/appointments';
+        }
+
+        // اجتاز URL جميع الفحوصات الأمنية
         return url;
     } catch (e) {
-        // If URL parsing fails, return a safe default
-        console.error('URL validation error:', e);
+        // إذا فشل تحليل URL، ارجع المسار الافتراضي الآمن
+        console.error('خطأ في التحقق من URL:', e);
         return '/appointments';
     }
 }
 
-// Create a safer version of window.location.href
+// استبدال دالة safeRedirect لتستخدم نهجًا أكثر أمانًا
 function safeRedirect(url) {
+    // تطبيق التحقق الأمني
     const safeUrl = validateRedirectUrl(url);
-    window.location.href = safeUrl;
+
+    // استخدام وظيفة موجهة للأمان بدلاً من التعيين المباشر لـ window.location.href
+    if (safeUrl.startsWith('/')) {
+        // مسار نسبي آمن داخل تطبيقنا
+        window.location.replace(safeUrl); // استخدام replace بدلاً من href
+    } else {
+        // ضمان إضافي للأمان، لا يجب أن نصل إلى هنا
+        window.location.replace('/appointments');
+    }
 }
 
 // Override window.location.href with a safer implementation
@@ -242,9 +260,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 notification.textContent = data.message;
                 form.insertBefore(notification, form.firstChild);
 
-                // Use our safeRedirect function instead of direct assignment
+                // استخدام إعادة توجيه آمنة
                 setTimeout(() => {
-                    safeRedirect(data.redirect_url);
+                    safeRedirect(data.redirect_url || '/appointments');
                 }, 2000);
             } else {
                 throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');
