@@ -10,15 +10,8 @@
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products-show.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/quantity-pricing.css') }}?t={{ time() }}">
-    <style>
-        .color-preview {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: inline-block;
-            border: 1px solid #ddd;
-        }
-    </style>
+
+
 </head>
 <body class="{{ auth()->check() ? 'user-logged-in' : '' }}">
     <!-- Cart overlay for the sidebar background effect -->
@@ -192,8 +185,7 @@
                                 <div class="image-thumbnails">
                                     @foreach($product->images as $image)
                                         <div class="thumbnail-wrapper {{ $image->is_primary ? 'active' : '' }}"
-                                            data-image-url="{{ url('storage/' . $image->image_path) }}"
-                                            onclick="updateMainImageSafe(this.getAttribute('data-image-url'), this)">
+                                            onclick="updateMainImageSafe('{{ url('storage/' . $image->image_path) }}', this)">
                                             <img src="{{ url('storage/' . $image->image_path) }}"
                                                 alt="Product thumbnail"
                                                 class="thumbnail-image">
@@ -349,7 +341,7 @@
                                         data-color="{{ $color->color }}"
                                         onclick="selectColor(this)">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span class="color-preview" data-color="{{ $color->color }}"></span>
+                                            <span class="color-preview" style="background-color: {{ e($color->color) }};"></span>
                                             <span class="color-name">{{ e($color->color) }}</span>
                                         </div>
                                         <span class="color-status">
@@ -510,8 +502,7 @@
                     @else
                         <!-- Login to Order Button -->
                         <button class="btn btn-primary btn-lg w-100 mb-4"
-                                data-login-url="{{ e(route('login')) }}"
-                                onclick="showLoginPrompt(this.getAttribute('data-login-url'))"
+                                onclick="showLoginPrompt('{{ e(route('login')) }}')"
                                 type="button">
                             <i class="fas fa-shopping-cart me-2"></i>
                             تسجيل الدخول للطلب

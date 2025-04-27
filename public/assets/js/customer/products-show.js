@@ -770,14 +770,6 @@ function toggleCart() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Set background colors for color-preview elements
-    document.querySelectorAll('.color-preview').forEach(function(element) {
-        const color = element.getAttribute('data-color');
-        if (color) {
-            element.style.backgroundColor = color;
-        }
-    });
-
     if (document.body.classList.contains('user-logged-in')) {
         loadCartItems();
     }
@@ -997,75 +989,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         showNotification(data.message, 'success');
 
                         const urlParams = new URLSearchParams(window.location.search);
-                        let redirectUrl = urlParams.has('pending_appointment') ?
+                        const redirectUrl = urlParams.has('pending_appointment') ?
                             '/cart' :
                             (data.redirect_url || '/appointments');
 
-                        // Implement a whitelist approach - only allow redirects to specific known paths
-                        const ALLOWED_REDIRECT_PATHS = [
-                            '/appointments',
-                            '/dashboard',
-                            '/profile',
-                            '/cart',
-                            '/checkout',
-                            '/client/bookings/my',
-                            '/products'
-                        ];
-
-                        // Default to a safe path if validation fails
-                        let safeRedirectUrl = '/appointments';
-
-                        try {
-                            // For URLs starting with http or https
-                            if (redirectUrl.startsWith('http')) {
-                                const url = new URL(redirectUrl);
-
-                                // Only allow same origin URLs
-                                if (url.origin === window.location.origin) {
-                                    // Get the path and check if it's in the whitelist
-                                    const path = url.pathname;
-
-                                    // Check if the path starts with any of our allowed paths
-                                    const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
-                                        path === allowedPath || path.startsWith(`${allowedPath}/`));
-
-                                    if (isAllowedPath) {
-                                        safeRedirectUrl = redirectUrl;
-                                    } else {
-                                        console.error('Redirect to non-whitelisted path blocked:', path);
-                                    }
-                                } else {
-                                    console.error('Blocked potential open redirect to different origin:', redirectUrl);
-                                }
-                            }
-                            // For relative URLs
-                            else {
-                                let path = redirectUrl;
-
-                                // Ensure path starts with /
-                                if (!path.startsWith('/')) {
-                                    path = '/' + path;
-                                }
-
-                                // Check if the path is in our whitelist
-                                const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
-                                    path === allowedPath || path.startsWith(`${allowedPath}/`));
-
-                                if (isAllowedPath) {
-                                    safeRedirectUrl = path;
-                                } else {
-                                    console.error('Redirect to non-whitelisted path blocked:', path);
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Error validating redirect URL:', e);
-                        }
-
-                        // Log the redirect for audit purposes
-                        console.log('Redirecting to:', safeRedirectUrl);
-
                         setTimeout(() => {
-                            window.location.href = safeRedirectUrl;
+                            window.location.href = redirectUrl;
                         }, 2000);
                     } else {
                         throw new Error(data.message || 'حدث خطأ أثناء حجز الموعد');
@@ -1134,7 +1063,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const urlParams = new URLSearchParams(window.location.search);
                         if (urlParams.has('pending_appointment')) {
-                            window.location.href = safeRedirect('/cart');
+                            window.location.href = '/cart';
                         } else {
                             bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
                             loadCartItems();
@@ -1345,58 +1274,4 @@ function toggleCustomColor(checkbox) {
         customColorInput.value = '';
         customColorInput.disabled = true;
     }
-}
-
-// Add a centralized safe redirect helper function
-function safeRedirect(targetPath) {
-    // Whitelist of allowed redirect destinations
-    const ALLOWED_REDIRECT_PATHS = [
-        '/appointments',
-        '/dashboard',
-        '/profile',
-        '/cart',
-        '/checkout',
-        '/client/bookings/my',
-        '/products'
-    ];
-
-    // Default safe redirect destination
-    let safeDestination = '/appointments';
-
-    try {
-        let path = targetPath;
-
-        // Parse URLs starting with http
-        if (path.startsWith('http')) {
-            const url = new URL(path);
-
-            // Only allow same origin
-            if (url.origin === window.location.origin) {
-                path = url.pathname;
-            } else {
-                console.error('Blocked redirect to external domain:', path);
-                return safeDestination;
-            }
-        }
-
-        // Ensure path starts with /
-        if (!path.startsWith('/')) {
-            path = '/' + path;
-        }
-
-        // Check if path is in whitelist
-        const isAllowedPath = ALLOWED_REDIRECT_PATHS.some(allowedPath =>
-            path === allowedPath || path.startsWith(`${allowedPath}/`));
-
-        if (isAllowedPath) {
-            safeDestination = path;
-        } else {
-            console.error('Redirect to non-whitelisted path blocked:', path);
-        }
-    } catch (e) {
-        console.error('Error in safeRedirect:', e);
-    }
-
-    console.log('Safe redirect to:', safeDestination);
-    return safeDestination;
 }
