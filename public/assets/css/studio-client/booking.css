@@ -1,4 +1,4 @@
-/* Variables */
+/* Rest of existing CSS follows */
 :root {
     --primary-color: #21B3B0;
     --secondary-color: #21B3B0;
@@ -453,7 +453,7 @@
 
 @media (max-width: 576px) {
     .container {
-        padding: 1rem;
+        padding:0.6rem;
     }
 
     .booking-form {
@@ -587,80 +587,6 @@ h2, h5, .form-label {
 .form-select.is-invalid:focus {
     border-color: #dc3545;
     box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.15);
-}
-
-/* تحديث تنسيق الناف بار */
-.navbar {
-    background-color: var(--navbar-bg) !important;
-    padding: 0.8rem 0;
-    box-shadow: 0 2px 10px rgba(255, 105, 180, 0.2);
-    min-height: 70px;
-}
-
-.navbar-brand,
-.nav-link,
-.navbar .navbar-nav .nav-link {
-    color: var(--navbar-text) !important;
-    font-weight: 600;
-    font-size: 1.1rem;
-    padding: 0.5rem 1rem;
-}
-
-.navbar-brand {
-    font-size: 1.3rem;
-    padding: 0.5rem 0;
-}
-
-.navbar-nav {
-    margin: 0;
-    padding: 0;
-}
-
-.navbar-nav .nav-item {
-    margin: 0 0.3rem;
-}
-
-.navbar .navbar-toggler {
-    border-color: rgba(255, 255, 255, 0.7);
-    padding: 0.5rem 0.75rem;
-}
-
-.navbar .navbar-toggler-icon {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-}
-
-.navbar .nav-link:hover {
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* تحسين الناف بار في صفحات الحجز */
-@media (max-width: 991.98px) {
-    .navbar-collapse {
-        background: rgba(33, 179, 176, 0.95) !important;
-        padding: 1rem;
-        border-radius: 15px;
-        margin-top: 1rem;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .navbar-nav .nav-link {
-        padding: 0.8rem 1.2rem !important;
-        border-radius: 10px;
-        transition: all 0.3s ease;
-        font-size: 1.1rem;
-        font-weight: 500;
-        color: white !important;
-        background: rgba(255, 255, 255, 0.1);
-        margin: 0.3rem 0;
-    }
-
-    .navbar-nav .nav-link:hover,
-    .navbar-nav .nav-link.active {
-        background: rgba(255, 255, 255, 0.2);
-        transform: translateX(-5px);
-    }
 }
 
 /* Authentication Notice Styling */
@@ -1592,3 +1518,561 @@ form.loading button[type="submit"]::after {
     margin-right: 5px;
     font-weight: bold;
 }
+
+
+
+
+    /* Bank Transfer Container */
+    #bank-transfer-container {
+        animation: fadeIn 0.5s ease;
+    }
+
+    #bank-transfer-container .card {
+        border-radius: 20px;
+        overflow: hidden;
+        border: none;
+        box-shadow: 0 10px 30px rgba(33, 179, 176, 0.15);
+        transition: all 0.3s ease;
+    }
+
+    #bank-transfer-container .card:hover {
+        transform: translateY(-5px);
+    }
+
+    #bank-transfer-container .card-header {
+        background: linear-gradient(135deg, #21B3B0, #219376);
+        border: none;
+        padding: 1.2rem 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #bank-transfer-container .card-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+        z-index: 1;
+    }
+
+    #bank-transfer-container .card-header h5 {
+        margin: 0;
+        color: white;
+        position: relative;
+        z-index: 2;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    #bank-transfer-container .card-body {
+        padding: 2rem;
+        background: #f8f9fa;
+    }
+
+    /* Bank info styling */
+    .bank-info {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .bank-info:hover {
+        box-shadow: 0 10px 25px rgba(33, 179, 176, 0.15);
+    }
+
+    .bank-info::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 5px;
+        background: linear-gradient(to bottom, #21B3B0, #219376);
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .bank-info:hover::after {
+        opacity: 1;
+    }
+
+    .bank-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(33, 179, 176, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 5px 15px rgba(33, 179, 176, 0.15);
+        transition: all 0.3s ease;
+    }
+
+    .bank-info:hover .bank-icon {
+        transform: scale(1.1);
+        background: rgba(33, 179, 176, 0.2);
+    }
+
+    .bank-icon i {
+        color: #21B3B0;
+    }
+
+    .bank-name {
+        font-weight: 700;
+        color: #21B3B0;
+        margin-bottom: 0.2rem;
+        font-size: 1.2rem;
+    }
+
+    .bank-details {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px dashed rgba(0, 0, 0, 0.1);
+    }
+
+    .bank-details .row {
+        border-bottom: 1px solid #f0f0f0;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+        transition: all 0.3s ease;
+        border-radius: 8px;
+    }
+
+    .bank-details .row:hover {
+        background: rgba(33, 179, 176, 0.05);
+        transform: translateX(-5px);
+        padding-right: 15px;
+    }
+
+    .bank-details .row:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+
+    .bank-details .copy-btn {
+        opacity: 0.7;
+        transition: all 0.3s ease;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bank-details .row:hover .copy-btn {
+        opacity: 1;
+    }
+
+    .bank-details .row:hover .copy-btn:hover {
+        transform: scale(1.1);
+        background: rgba(33, 179, 176, 0.1);
+        color: #21B3B0;
+    }
+
+    /* Steps styling */
+    .title-with-icon {
+        display: flex;
+        align-items: center;
+        color: #21B3B0;
+        font-weight: 700;
+        margin-bottom: 1.2rem;
+        position: relative;
+        padding-right: 1rem;
+    }
+
+    .title-with-icon::before {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(to bottom, #21B3B0, #219376);
+        border-radius: 2px;
+    }
+
+    .steps {
+        margin-top: 1.5rem;
+    }
+
+    .step-item {
+        display: flex;
+        margin-bottom: 1.5rem;
+        align-items: flex-start;
+        background: white;
+        border-radius: 15px;
+        padding: 1.2rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .step-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(33, 179, 176, 0.1);
+    }
+
+    .step-item::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 5px;
+        background: linear-gradient(to bottom, #21B3B0, #219376);
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .step-item:hover::after {
+        opacity: 1;
+    }
+
+    .step-number {
+        background: linear-gradient(135deg, #21B3B0, #219376);
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-left: 15px;
+        flex-shrink: 0;
+        box-shadow: 0 5px 10px rgba(33, 179, 176, 0.2);
+        transition: all 0.3s ease;
+    }
+
+    .step-item:hover .step-number {
+        transform: scale(1.1);
+        box-shadow: 0 8px 15px rgba(33, 179, 176, 0.3);
+    }
+
+    .step-content {
+        flex-grow: 1;
+    }
+
+    .step-content h6 {
+        margin-bottom: 0.5rem;
+        color: #21B3B0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+    }
+
+    .step-content p {
+        margin-bottom: 0;
+        color: #666;
+    }
+
+    /* Alert styling */
+    .alert-warning {
+        background: linear-gradient(to right, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.05));
+        border: none;
+        border-radius: 12px;
+        border-right: 4px solid #ffc107;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .alert-warning:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(255, 193, 7, 0.15);
+    }
+
+    .alert-warning::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+        opacity: 0;
+        transition: all 0.5s ease;
+        transform: scale(0.5);
+    }
+
+    .alert-warning:hover::before {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    .alert-warning h6 {
+        color: #856404;
+        font-weight: 700;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Payment note and security badge */
+    .payment-note {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .payment-note:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(33, 179, 176, 0.1);
+    }
+
+    .payment-secure-badge {
+        width: 60px;
+        height: 60px;
+        background: rgba(33, 179, 176, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        transition: all 0.3s ease;
+    }
+
+    .payment-note:hover .payment-secure-badge {
+        transform: scale(1.1);
+        background: rgba(33, 179, 176, 0.2);
+    }
+
+    .payment-secure-badge i {
+        color: #21B3B0;
+    }
+
+    /* Copy button animation */
+    .copy-btn.btn-success {
+        animation: pulse 0.5s;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .bank-details .row {
+            flex-direction: column;
+        }
+
+        .bank-details .col-md-4 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .bank-details .col-md-8 {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .bank-details .col-md-8 span {
+            width: 100%;
+            word-break: break-all;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .bank-details .copy-btn {
+            margin-right: 5px;
+        }
+
+        .step-item {
+            padding: 1rem;
+        }
+
+        /* Specific adjustments for the bank transfer container */
+        #bank-transfer-container .card-body {
+            padding: 1rem;
+        }
+
+        .bank-info {
+            padding: 1rem;
+        }
+
+        .d-flex.align-items-center.mb-3 {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .bank-icon {
+            margin-bottom: 1rem;
+            margin-right: 0 !important;
+        }
+
+        .bank-name, .small.text-muted.mb-0 {
+            text-align: center;
+        }
+
+        /* Button alignment for copy and whatsapp */
+        .bank-details .d-flex.align-items-center {
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .bank-details .btn {
+            margin: 0.25rem;
+        }
+    }
+
+    /* Additional mobile optimizations for very small screens */
+    @media (max-width: 480px) {
+        #bank-transfer-container .card {
+            border-radius: 0;
+            margin-left: -1.5rem;
+            margin-right: -1.5rem;
+            width: calc(100% + 3rem);
+        }
+
+        .bank-details .row {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .bank-details .col-md-8 span {
+            font-size: 0.85rem;
+        }
+
+        .step-item {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .step-number {
+            margin: 0 auto 0.75rem;
+        }
+    }
+
+    /* Payment Unavailable Alert Styling */
+    .payment-unavailable-alert {
+        margin-bottom: 2rem;
+    }
+
+    .alert-important {
+        display: flex;
+        background: linear-gradient(to right, rgba(220, 53, 69, 0.15), rgba(220, 53, 69, 0.05));
+        border: none;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 25px rgba(220, 53, 69, 0.15);
+        border-right: 4px solid #dc3545;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        animation: pulse-light 2s infinite;
+    }
+
+    .alert-important::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(220, 53, 69, 0.1) 0%, transparent 70%);
+        opacity: 0;
+        transition: all 0.5s ease;
+        transform: scale(0.5);
+    }
+
+    .alert-important:hover::before {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    .alert-icon-wrapper {
+        width: 50px;
+        height: 50px;
+        background: rgba(220, 53, 69, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 1.5rem;
+        flex-shrink: 0;
+        animation: pulse 2s infinite;
+    }
+
+    .alert-icon-wrapper i {
+        font-size: 1.5rem;
+        color: #dc3545;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-content h5 {
+        color: #dc3545;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-size: 1.2rem;
+    }
+
+    .alert-content p {
+        color: #333;
+        margin-bottom: 0;
+        font-weight: 500;
+    }
+
+    @keyframes pulse-light {
+        0% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.3);
+        }
+        70% {
+            box-shadow: 0 0 0 15px rgba(220, 53, 69, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .alert-important {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .alert-icon-wrapper {
+            margin: 0 auto 1rem;
+        }
+    }

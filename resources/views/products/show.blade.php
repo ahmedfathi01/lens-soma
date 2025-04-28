@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products-show.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/products.css') }}?t={{ time() }}">
     <link rel="stylesheet" href="{{ asset('assets/css/customer/quantity-pricing.css') }}?t={{ time() }}">
-
+    <!-- Tabby Script -->
+    <script src="https://checkout.tabby.ai/tabby-promo.js"></script>
 
 </head>
 <body class="{{ auth()->check() ? 'user-logged-in' : '' }}">
@@ -232,6 +233,8 @@
                                         </span>
                                     </div>
                                 @endif
+                                <!-- Tabby Installment Badge -->
+                                <div id="tabby-product-promo"></div>
                             @else
                                 <span class="amount">{{ number_format($product->min_price, 2) }} - {{ number_format($product->max_price, 2) }}</span>
                                 <span class="currency">ر.س</span>
@@ -248,6 +251,8 @@
                                         </span>
                                     </div>
                                 @endif
+                                <!-- Tabby Installment Badge -->
+                                <div id="tabby-product-promo"></div>
                             @endif
                         </div>
                     </div>
@@ -492,6 +497,11 @@
                             <input type="number" class="form-control text-center" id="quantity" value="1" min="1" max="{{ $product->stock }}" readonly>
                             <button class="btn btn-outline-primary" type="button" onclick="updatePageQuantity(1)">+</button>
                         </div>
+                    </div>
+
+                    <!-- Add Tabby Payment Methods info -->
+                    <div class="tabby-payment-options mb-4">
+                        <div id="tabby-payment-methods"></div>
                     </div>
 
                     <!-- Add to Cart Button -->
@@ -787,6 +797,26 @@
 
                 // Add cursor pointer style
                 couponElement.style.cursor = 'pointer';
+            });
+
+            // Initialize Tabby Promotion
+            const productPrice = document.getElementById('original-price').value;
+
+            new TabbyPromo({
+                selector: '#tabby-product-promo',
+                currency: 'SAR',
+                price: productPrice,
+                installmentsCount: 4,
+                lang: 'ar'
+            });
+
+            // Initialize Tabby Payment Methods
+            new TabbyPromo({
+                selector: '#tabby-payment-methods',
+                currency: 'SAR',
+                price: productPrice,
+                source: 'product',
+                lang: 'ar'
             });
         });
     </script>

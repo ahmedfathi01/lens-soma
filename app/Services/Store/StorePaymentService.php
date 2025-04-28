@@ -182,4 +182,9 @@ class StorePaymentService
 
         return $order;
     }
+
+    public function captureTabbyPayment(string $paymentId, float $amount = null): array
+    {
+        return $this->tabbyService->capturePayment($paymentId, $amount);
+    }
 }

@@ -44,6 +44,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/studio-client/booking.css') }}?t={{ time() }}">
 
 
+
     <!-- Tabby Scripts -->
     <script src="https://checkout.tabby.ai/tabby-promo.js"></script>
     <script>
@@ -149,6 +150,18 @@
             </div>
         </div>
         @endguest
+
+        <div class="alert alert-important">
+                            <div class="alert-icon-wrapper">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="alert-content">
+                                <h5>تنبيه هام جداً</h5>
+                                <p>الدفع عبر تابي وبوابات الدفع الإلكتروني غير متاح حالياً. يرجى اختيار الدفع عبر الحساب البنكي.</p>
+                            </div>
+                        </div>
+
+
 
         <!-- Booking Form -->
         <div class="booking-form animate-fadeInUp">
@@ -356,19 +369,19 @@
                                     <ul class="list-unstyled text-start mb-4">
                                         <li class="mb-2">
                                             <i class="fas fa-check-circle text-success me-2"></i>
-                                            سيتم تحويلك إلى بوابة الدفع الإلكتروني بعد تأكيد الحجز
+                                            سيتم تزويدك بتفاصيل الحساب البنكي بعد النزول لاسفل لتاكيد الحجز
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="fas fa-university text-success me-2"></i>
+                                            حاليًا، الدفع متاح فقط عن طريق التحويل البنكي
                                         </li>
                                         <li class="mb-2">
                                             <i class="fas fa-credit-card text-success me-2"></i>
-                                            يمكنك الدفع باستخدام بطاقة مدى أو فيزا أو ماستركارد
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-lock text-success me-2"></i>
-                                            جميع عمليات الدفع آمنة ومشفرة بواسطة PayTabs
+                                            قريبًا سيتم إضافة بوابات الدفع الإلكتروني (تابي، بايتابس، مدى)
                                         </li>
                                         <li class="mb-2">
                                             <i class="fas fa-check-circle text-success me-2"></i>
-                                            سيتم تأكيد الحجز تلقائيًا بعد نجاح عملية الدفع
+                                            سيتم تأكيد الحجز بعد التحقق من استلام المبلغ
                                         </li>
                                         <li>
                                             <i class="fas fa-check-circle text-success me-2"></i>
@@ -460,17 +473,24 @@
                 <div class="payment-methods-section mb-4">
                     <h4 class="mb-3">اختر طريقة الدفع</h4>
 
-                    <!-- إضافة تنبيه توضيحي عن وضع الاختبار لتابي -->
-                    <div class="alert alert-info mb-4">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>ملاحظة هامة:</strong> حالياً، خدمة الدفع عبر تابي تعمل في وضع الاختبار فقط ولن يتم خصم أي مبالغ من بطاقتك.
+                    <!-- تنبيه عدم توفر بوابات الدفع الإلكتروني -->
+                    <div class="payment-unavailable-alert">
+                        <div class="alert alert-important">
+                            <div class="alert-icon-wrapper">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="alert-content">
+                                <h5>تنبيه هام جداً</h5>
+                                <p>الدفع عبر تابي وبوابات الدفع الإلكتروني غير متاح حالياً. يرجى اختيار الدفع عبر الحساب البنكي.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="payment-methods-container">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <div class="payment-method-card">
-                                    <input type="radio" name="payment_method" id="payment_tabby" value="tabby" checked>
+                                    <input type="radio" name="payment_method" id="payment_tabby" value="tabby">
                                     <label for="payment_tabby" class="payment-method-label tabby-shimmer">
                                         <div class="payment-icon">
                                             <img src="https://th.bing.com/th/id/OIP.MYBQ1iOEIlhyysL0Y3eh4wHaFG?rs=1&pid=ImgDetMain" alt="Tabby" style="height: 30px;">
@@ -490,8 +510,8 @@
                                             <i class="fas fa-money-bill-wave"></i>
                                         </div>
                                         <div class="payment-details">
-                                            <h5>الدفع عند الاستلام</h5>
-                                            <p>ادفع نقداً بعد حضور الجلسة</p>
+                                            <h5>الدفع عبر الحساب البنكي</h5>
+                                            <p>ادفع نصف المبلغ عبر الحساب البنكي لتأكيد الحجز</p>
                                         </div>
                                     </label>
                                 </div>
@@ -521,6 +541,111 @@
                             <img src="https://mintlify.s3.us-west-1.amazonaws.com/tabby-5f40add6/images/tabby-payment-method.png" alt="شاشة تابي" />
                             <figcaption class="small">شكل شاشة تابي عند الدفع</figcaption>
                         </figure>
+                    </div>
+
+                    <!-- Bank Transfer Container -->
+                    <div id="bank-transfer-container" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-university me-2"></i>معلومات الدفع</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="bank-info">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="bank-icon me-3">
+                                            <i class="fas fa-university fa-2x text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="bank-name mb-0">البنك الأهلي السعودي</h5>
+                                            <p class="small text-muted mb-0">حساب استوديو عدسة سوما</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="bank-details">
+                                        <div class="row mb-3">
+                                            <div class="col-md-4 text-muted">رقم الحساب</div>
+                                            <div class="col-md-8 d-flex align-items-center">
+                                                <span id="account-number">18900000406701</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                                                        data-clipboard-text="18900000406701">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-4 text-muted">الآيبان</div>
+                                            <div class="col-md-8 d-flex align-items-center">
+                                                <span id="iban">SA8710000018900000406701</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                                                        data-clipboard-text="SA8710000018900000406701">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-4 text-muted">السويفت</div>
+                                            <div class="col-md-8 d-flex align-items-center">
+                                                <span id="swift">NCBKSAJE</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                                                        data-clipboard-text="NCBKSAJE">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-4 text-muted">رقم الواتساب للتواصل</div>
+                                            <div class="col-md-8 d-flex align-items-center">
+                                                <span id="whatsapp">+966561667885</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2 copy-btn"
+                                                        data-clipboard-text="+966561667885">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                                <a href="https://wa.me/966561667885" class="btn btn-sm btn-success ms-2" target="_blank">
+                                                    <i class="fab fa-whatsapp"></i> تواصل
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-warning mt-3">
+                                    <h6 class="mb-2"><i class="fas fa-exclamation-triangle me-2"></i>ملاحظة هامة:</h6>
+                                    <p class="mb-1">يجب دفع نصف المبلغ لتأكيد الطلب</p>
+                                </div>
+
+                                <div class="bank-transfer-steps mt-4">
+                                    <h6 class="mb-3 title-with-icon"><i class="fas fa-check-circle me-2"></i>خطوات إتمام الدفع</h6>
+                                    <div class="steps">
+                                        <div class="step-item">
+                                            <div class="step-number">١</div>
+                                            <div class="step-content">
+                                                <h6><i class="fas  text-primary me-2"></i>حول المبلغ للحساب</h6>
+                                                <p class="small text-muted">قم بتحويل المبلغ للحساب البنكي المذكور أعلاه</p>
+                                            </div>
+                                        </div>
+                                        <div class="step-item">
+                                            <div class="step-number">٢</div>
+                                            <div class="step-content">
+                                                <h6><i class="fas text-primary me-2"></i>أرسل صورة الإيصال عبر الواتساب</h6>
+                                                <p class="small text-muted">أرسل صورة من إيصال التحويل عبر الواتساب للرقم المذكور</p>
+                                            </div>
+                                        </div>
+                                        <div class="step-item">
+                                            <div class="step-number">٣</div>
+                                            <div class="step-content">
+                                                <h6><i class="fas  text-primary me-2"></i>انتظر تأكيد الطلب</h6>
+                                                <p class="small text-muted">سيتم تأكيد الحجز بعد التحقق من عملية الدفع</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                        >
+                            </div>
+                        </div>
                     </div>
                 </div>
                 @endauth

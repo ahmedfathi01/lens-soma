@@ -120,7 +120,7 @@ Route::middleware([
         });
     });
 
-    Route::name('admin.')->middleware(['role:admin'])->group(function () {
+    Route::name('admin.')->middleware(['role:admin', 'admin.popup.auth'])->group(function () {
         Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
         Route::post('/admin/update-fcm-token', [AdminDashboardController::class, 'updateFcmToken'])

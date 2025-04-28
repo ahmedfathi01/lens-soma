@@ -1089,30 +1089,6 @@
     color: var(--primary-color);
 }
 
-.tabby-top-banner {
-    margin-bottom: 20px;
-    padding: 15px;
-    background-color: var(--tabby-bg);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--tabby-border);
-    text-align: center;
-}
-
-.tabby-top-banner h3 {
-    color: var(--tabby-text);
-    margin-bottom: 10px;
-    font-size: 18px;
-}
-
-.tabby-top-banner p {
-    color: var(--text-light);
-    margin-bottom: 0;
-}
-
-.tabby-top-banner strong {
-    color: var(--primary-color);
-}
-
 /* تأثيرات جذابة لتابي */
 .payment-method-option .payment-method-label.tabby-shimmer {
     position: relative;

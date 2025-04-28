@@ -187,10 +187,7 @@
         <div class="container">
             <div class="checkout-wrapper">
                 <!-- Tabby Top Banner -->
-                <div class="tabby-top-banner">
-                    <h3>🔥 قسّم مشترياتك على 4 دفعات شهرية بدون فوائد!</h3>
-                    <p>ادفع <strong>{{ number_format($cart->total_amount / 4, 2) }} ريال</strong> اليوم والباقي لاحقاً. اختر <strong>طريقة الدفع مع تابي</strong> عند الدفع.</p>
-                </div>
+
 
                 <form action="{{ route('checkout.store') }}" method="POST" id="checkout-form">
                     @csrf
@@ -376,7 +373,7 @@
                                 <!-- معلومات التقسيط البارزة -->
                                 <div class="order-summary-installment-notice">
                                     <i class="fas fa-tags"></i>
-                                    <p>قسّم الدفع على 4 دفعات شهرية! <strong>{{ number_format($cart->total_amount / 4, 2) }} ريال</strong> فقط كل شهر مع <strong>تابي</strong></p>
+                                    <p>قسّمها على 4. بدون أي فوائد، أو رسوم. <strong>{{ number_format($cart->total_amount / 4, 2) }} ريال</strong> فقط كل شهر مع <strong>تابي</strong></p>
                                 </div>
 
                                 <!-- Tabby Widget - بيان التقسيط -->
@@ -438,7 +435,7 @@
                                                 <span class="payment-icon"><i class="fas fa-shopping-bag"></i></span>
                                                 <span class="payment-label">
                                                     <span class="new-badge">تجريبي!</span>
-                                                    التقسيط مع تابي
+                                                    قسّمها على 4. بدون أي فوائد، أو رسوم.
                                                 </span>
                                                 <div class="payment-cards">
                                                     <img src="https://th.bing.com/th/id/OIP.MYBQ1iOEIlhyysL0Y3eh4wHaFG?rs=1&pid=ImgDetMain" alt="Tabby" style="height: 30px;">
@@ -451,10 +448,10 @@
                                     <div id="tabby-container">
                                         <div class="tabby-promo">
                                             <img src="https://th.bing.com/th/id/OIP.MYBQ1iOEIlhyysL0Y3eh4wHaFG?rs=1&pid=ImgDetMain" alt="Tabby" class="tabby-logo">
-                                            <p>قسّم مشترياتك على 4 دفعات بدون فوائد ورسوم إضافية.</p>
+                                            <p>قسّمها على 4. بدون أي فوائد، أو رسوم.</p>
                                         </div>
                                         <div class="tabby-info">
-                                            <h4>كيف يعمل التقسيط مع تابي:</h4>
+                                            <h4>كيف يعمل Pay in 4:</h4>
                                             <ul>
                                                 <li>ادفع ربع المبلغ الآن ({{ number_format($cart->total_amount / 4, 2) }} ريال)</li>
                                                 <li>ادفع الباقي على 3 أقساط شهرية ({{ number_format($cart->total_amount / 4, 2) }} ريال كل شهر)</li>

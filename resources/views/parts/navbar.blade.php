@@ -66,7 +66,7 @@
                     <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-user-circle"></i>
                         @auth
-                            {{ Auth::user()->name }}
+                            {{ Str::limit(Auth::user()->name, 15) }}
                         @else
                             حسابي
                         @endauth
@@ -79,9 +79,11 @@
                         <li><a class="dropdown-item" href="{{ route('profile.edit') }}">
                             <i class="fas fa-user-edit"></i> الملف الشخصي
                         </a></li>
+                        @if(auth()->user()->hasRole('customer'))
                         <li><a class="dropdown-item" href="{{ route('notifications.index') }}">
                             <i class="fas fa-bell"></i> الإشعارات
                         </a></li>
+                        @endif
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form method="POST" action="{{ route('logout') }}">

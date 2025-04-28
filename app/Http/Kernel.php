@@ -51,6 +51,6 @@ class Kernel extends HttpKernel
      */
     protected $routeMiddleware = [
         // ... existing middleware
-    
+
     ];
 }

@@ -355,6 +355,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             updateTotalPriceAndInstallment();
+
+            // Dispatch an event to notify other scripts about package selection
+            document.dispatchEvent(new CustomEvent('packageSelected', {
+                detail: { packageId: packageId }
+            }));
         }
 
         serviceSelect.addEventListener('change', function() {
@@ -405,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p class="text-muted">${pkg.description}</p>
                         <ul class="list-unstyled">
                             <li><i class="fas fa-clock me-2"></i>المدة:
-                                <span class="duration-value">${pkg.duration}</span>
+
                                 ${pkg.duration >= 60
                                 ? `${Math.floor(pkg.duration / 60)} ساعة${pkg.duration % 60 > 0 ? ` و ${pkg.duration % 60} دقيقة` : ''}`
                                 : `${pkg.duration} دقيقة`
@@ -438,20 +443,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 card.addEventListener('click', function() {
                     const radio = this.querySelector('input[type="radio"]');
                     if (radio) {
+                        // Clear selected addons
                         document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
                             checkbox.checked = false;
                         });
 
-                        radio.checked = true;
-                        handlePackageSelection(radio.value);
-                    }
-                    document.querySelectorAll('.package-card').forEach(c => {
-                        c.classList.remove('selected');
-                    });
-                    this.classList.add('selected');
+                        // Deselect all other packages visually
+                        document.querySelectorAll('.package-card').forEach(c => {
+                            c.classList.remove('selected');
+                        });
 
-                    updateTotalPriceAndInstallment();
+                        // Select this package
+                        radio.checked = true;
+                        this.classList.add('selected');
+
+                        // Trigger change event on the radio button to ensure it's recognized by other listeners
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        // Process the selection
+                        handlePackageSelection(radio.value);
+                        updateTotalPriceAndInstallment();
+                    }
                 });
+
+                // Add change listener to radio buttons as well
+                const radioButton = card.querySelector('input[type="radio"]');
+                if (radioButton) {
+                    radioButton.addEventListener('change', function() {
+                        if (this.checked) {
+                            // Deselect all packages visually
+                            document.querySelectorAll('.package-card').forEach(c => {
+                                c.classList.remove('selected');
+                            });
+
+                            // Select this package
+                            this.closest('.package-card').classList.add('selected');
+
+                            // Process the selection
+                            handlePackageSelection(this.value);
+                            updateTotalPriceAndInstallment();
+                        }
+                    });
+                }
             });
         }
 
@@ -503,13 +536,18 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('input[name="session_date"]').addEventListener('change', function() {
             const selectedPackageRadio = document.querySelector('.package-select:checked');
             if (selectedPackageRadio) {
-                const packageDuration = parseFloat(selectedPackageRadio.closest('.package-card').querySelector('.duration-value').textContent);
-                if (this.value) {
-                    document.getElementById('sessionTime').disabled = false;
-                    updateAvailableTimes(packageDuration);
+                const packageId = selectedPackageRadio.value;
+                const selectedPackage = allPackages.find(pkg => pkg.id == packageId);
+
+                if (selectedPackage && this.value) {
+                    updateAvailableTimes(selectedPackage.duration);
                 } else {
                     document.getElementById('sessionTime').disabled = true;
+                    document.getElementById('sessionTime').innerHTML = '<option value="">يرجى اختيار التاريخ أولاً</option>';
                 }
+            } else {
+                document.getElementById('sessionTime').disabled = true;
+                document.getElementById('sessionTime').innerHTML = '<option value="">يرجى اختيار الباقة أولاً</option>';
             }
         });
 

@@ -252,4 +252,16 @@ class PaymentService
 
         return $booking;
     }
+
+    /**
+     * Capture a Tabby payment for a booking
+     *
+     * @param string $paymentId Tabby payment ID to capture
+     * @param float|null $amount Optional amount to capture (defaults to full amount)
+     * @return array Result of the capture operation
+     */
+    public function captureTabbyPayment(string $paymentId, float $amount = null): array
+    {
+        return $this->tabbyService->capturePayment($paymentId, $amount);
+    }
 }
