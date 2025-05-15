@@ -442,6 +442,21 @@
                                                 </div>
                                             </label>
                                         </div>
+                                        <div class="payment-method-option">
+                                            <input type="radio" name="payment_method" id="payment_paytabs" value="paytabs"
+                                                {{ old('payment_method') == 'paytabs' ? 'checked' : '' }}>
+                                            <label for="payment_paytabs" class="payment-method-label">
+                                                <span class="payment-icon"><i class="fas fa-credit-card"></i></span>
+                                                <span class="payment-label">
+                                                    الدفع الإلكتروني
+                                                </span>
+                                                <div class="payment-cards">
+                                                    <img src="https://cdn.nooncdn.com/s/app/com/noon/design-system/payment-methods-v2/cards/visa.svg" alt="Visa" style="height: 24px; margin-right: 5px;">
+                                                    <img src="https://cdn.nooncdn.com/s/app/com/noon/design-system/payment-methods-v2/cards/mastercard.svg" alt="MasterCard" style="height: 24px; margin-right: 5px;">
+                                                    <img src="https://cdn.nooncdn.com/s/app/com/noon/design-system/payment-methods-v2/cards/mada.svg" alt="Mada" style="height: 24px;">
+                                                </div>
+                                            </label>
+                                        </div>
                                     </div>
 
                                     <!-- Tabby Container -->

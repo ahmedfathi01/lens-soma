@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Package;
 use App\Models\PackageAddon;
+use App\Models\Coupon;
+use App\Models\Service;
+use App\Models\User;
 
 use App\Services\Booking\BookingService;
 use App\Services\Booking\AvailabilityService;
@@ -16,6 +19,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Session;
+use Spatie\Permission\Traits\HasRoles;
 
 use App\Notifications\BookingStatusUpdated;
 
@@ -115,7 +120,7 @@ class BookingController extends Controller
             'coupon_code' => 'nullable|string',
             'image_consent' => 'required|in:0,1',
             'terms_consent' => 'required|accepted',
-            'payment_method' => 'required|in:online,tabby,cod'
+            'payment_method' => 'required|in:online,tabby,cod,paytabs'
         ]);
 
         $package = Package::findOrFail($validated['package_id']);
@@ -461,6 +466,38 @@ class BookingController extends Controller
     public function paymentReturn(Request $request)
     {
         return $this->paymentCallback($request);
+    }
+
+    /**
+     * معالجة الإشعارات من PayTabs
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function paytabsWebhook(Request $request)
+    {
+        try {
+            Log::info('PayTabs webhook received for booking', ['data' => $request->all()]);
+
+            $paymentData = $this->paymentService->processPaymentResponse($request);
+
+            $booking = $this->paymentService->findExistingBooking($paymentData);
+
+            if (!$booking) {
+                return response()->json(['status' => 'error', 'message' => 'Booking not found'], 404);
+            }
+
+            $this->paymentService->updateBookingPaymentStatus($booking, $paymentData);
+
+            return response()->json(['status' => 'success']);
+        } catch (\Exception $e) {
+            Log::error('Error processing PayTabs webhook for booking', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json(['status' => 'error', 'message' => 'Server error'], 500);
+        }
     }
 
     public function success(Booking $booking)

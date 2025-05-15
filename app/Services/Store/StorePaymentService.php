@@ -4,6 +4,7 @@ namespace App\Services\Store;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Payment\StorePaytabsService;
 use App\Services\Payment\StoreTabbyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +13,12 @@ use Illuminate\Support\Str;
 class StorePaymentService
 {
     protected $tabbyService;
+    protected $paytabsService;
 
-    public function __construct(StoreTabbyService $tabbyService)
+    public function __construct(StoreTabbyService $tabbyService, StorePaytabsService $paytabsService)
     {
         $this->tabbyService = $tabbyService;
+        $this->paytabsService = $paytabsService;
     }
 
     public function initiatePayment(array $orderData, float $amount, User $user): array
@@ -23,19 +26,39 @@ class StorePaymentService
         $paymentId = $orderData['payment_id'] ?? 'ORDER-' . strtoupper(Str::random(8)) . '-' . time();
         $orderData['payment_id'] = $paymentId;
 
-        $customerData = $this->tabbyService->prepareCustomerDetails([
-            'name' => $user->name,
-            'email' => $user->email,
-            'phone' => $orderData['phone'] ?? $user->phone,
-            'address' => $orderData['shipping_address'] ?? $user->address,
-            'city' => $user->city ?? null,
-            'state' => $user->state ?? null,
-            'country' => 'SA'
-        ]);
+        // تحديد خدمة الدفع المناسبة
+        $paymentMethod = $orderData['payment_method'] ?? 'tabby';
 
-        $orderData['description'] = 'Order Payment - ' . $paymentId;
+        if ($paymentMethod === 'paytabs') {
+            $customerData = $this->paytabsService->prepareCustomerDetails([
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $orderData['phone'] ?? $user->phone,
+                'address' => $orderData['shipping_address'] ?? $user->address,
+                'city' => $user->city ?? null,
+                'state' => $user->state ?? null,
+                'country' => 'SA'
+            ]);
 
-        $response = $this->tabbyService->createPaymentRequest($orderData, $amount, $customerData);
+            $orderData['description'] = 'Order Payment - ' . $paymentId;
+
+            $response = $this->paytabsService->createPaymentRequest($orderData, $amount, $customerData);
+        } else {
+            // Tabby (الافتراضي)
+            $customerData = $this->tabbyService->prepareCustomerDetails([
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $orderData['phone'] ?? $user->phone,
+                'address' => $orderData['shipping_address'] ?? $user->address,
+                'city' => $user->city ?? null,
+                'state' => $user->state ?? null,
+                'country' => 'SA'
+            ]);
+
+            $orderData['description'] = 'Order Payment - ' . $paymentId;
+
+            $response = $this->tabbyService->createPaymentRequest($orderData, $amount, $customerData);
+        }
 
         if (!empty($response['success']) && !empty($response['data']['redirect_url'])) {
             session(['payment_transaction_id' => $response['data']['tran_ref'] ?? null]);
@@ -65,10 +88,57 @@ class StorePaymentService
 
     public function processPaymentResponse(Request $request): array
     {
-        $paymentData = $this->tabbyService->extractPaymentData($request);
+        Log::info('Processing payment response in store', [
+            'payment_id' => session('payment_transaction_id'),
+            'request' => $request->all(),
+            'query' => $request->query(),
+            'session_data' => [
+                'pending_order_id' => session('pending_order_id'),
+                'payment_transaction_id' => session('payment_transaction_id')
+            ]
+        ]);
 
-        if ($paymentData['tranRef']) {
-            $paymentData = $this->tabbyService->verifyPaymentStatus($paymentData);
+        // تحديد الخدمة التي يجب استخدامها بناءً على البيانات في الطلب
+        $paymentData = null;
+
+        // محاولة الحصول على بيانات معرف الدفع من الجلسة أولاً
+        $sessionTransactionId = session('payment_transaction_id');
+        $webhookData = session('paytabs_webhook_data');
+
+        // فحص وجود بيانات من PayTabs حتى لو لم تكن في الطلب مباشرة
+        $hasPayTabsData = $request->has('tran_ref') ||
+                         $request->has('respStatus') ||
+                         $request->has('payment_reference') ||
+                         $request->query('tranRef') ||
+                         $sessionTransactionId ||
+                         $webhookData;
+
+        if ($hasPayTabsData) {
+            // إذا كان لدينا بيانات webhook مخزنة ولم يكن هناك بيانات في الطلب الحالي
+            if (empty($request->all()) && $webhookData) {
+                Log::info('Using stored webhook data', ['webhook_data' => $webhookData]);
+                $mockRequest = new Request($webhookData);
+                $paymentData = $this->paytabsService->extractPaymentData($mockRequest);
+            } else {
+                $paymentData = $this->paytabsService->extractPaymentData($request);
+            }
+
+            // إذا لم نحصل على معرف للمعاملة من الطلب، نستخدم المعرف المخزن في الجلسة
+            if (empty($paymentData['tranRef']) && $sessionTransactionId) {
+                $paymentData['tranRef'] = $sessionTransactionId;
+                Log::info('Using transaction ID from session', ['tran_ref' => $sessionTransactionId]);
+            }
+
+            if ($paymentData['tranRef']) {
+                $paymentData = $this->paytabsService->verifyPaymentStatus($paymentData);
+            }
+        } else {
+            // استخدام Tabby إذا لم تكن بيانات PayTabs موجودة
+            $paymentData = $this->tabbyService->extractPaymentData($request);
+
+            if ($paymentData['tranRef']) {
+                $paymentData = $this->tabbyService->verifyPaymentStatus($paymentData);
+            }
         }
 
         return $paymentData;
@@ -92,24 +162,60 @@ class StorePaymentService
 
     public function updateOrderPaymentStatus(Order $order, array $paymentData): Order
     {
+        // تحضير تفاصيل الدفع للتخزين
+        $paymentDetails = [
+            'transaction_id' => $paymentData['tranRef'] ?? null,
+            'status' => $paymentData['responseStatus'] ?? $paymentData['status'] ?? null,
+            'amount' => $paymentData['amount'] ?? null,
+            'currency' => $paymentData['currency'] ?? 'SAR',
+            'payment_date' => now()->format('Y-m-d H:i:s'),
+            'message' => $paymentData['responseMessage'] ?? $paymentData['message'] ?? null,
+            'method' => $order->payment_method
+        ];
+
+        // إضافة تفاصيل إضافية حسب طريقة الدفع
+        if ($order->payment_method === 'paytabs') {
+            $paymentDetails['card_info'] = $paymentData['rawData']['payment_info']['card_type'] ?? null;
+            $paymentDetails['payment_gateway'] = 'PayTabs';
+        } elseif ($order->payment_method === 'tabby') {
+            if (!empty($paymentData['installments'])) {
+                $paymentDetails['installments'] = $paymentData['installments'];
+                $paymentDetails['installments_count'] = count($paymentData['installments']);
+                $paymentDetails['downpayment'] = $paymentData['downpayment'] ?? null;
+                $paymentDetails['downpayment_percent'] = $paymentData['downpayment_percent'] ?? null;
+                $paymentDetails['next_payment_date'] = $paymentData['next_payment_date'] ?? null;
+            }
+            $paymentDetails['payment_gateway'] = 'Tabby';
+        }
+
+        Log::info('Updating order payment status with details', [
+            'order_id' => $order->id,
+            'payment_method' => $order->payment_method,
+            'payment_status' => $paymentData['isSuccessful'] ? 'PAID' : ($paymentData['isPending'] ? 'PENDING' : 'FAILED'),
+            'payment_details' => $paymentDetails
+        ]);
+
         if ($paymentData['isSuccessful']) {
             $order->update([
                 'order_status' => Order::ORDER_STATUS_PROCESSING,
                 'payment_status' => Order::PAYMENT_STATUS_PAID,
                 'payment_transaction_id' => $paymentData['tranRef'] ?? $order->payment_transaction_id,
-                'amount_paid' => $paymentData['amount'] ?? $order->total_amount
+                'amount_paid' => $paymentData['amount'] ?? $order->total_amount,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         } elseif ($paymentData['isPending']) {
             $order->update([
                 'order_status' => Order::ORDER_STATUS_PENDING,
                 'payment_status' => Order::PAYMENT_STATUS_PENDING,
-                'payment_transaction_id' => $paymentData['tranRef'] ?? $order->payment_transaction_id
+                'payment_transaction_id' => $paymentData['tranRef'] ?? $order->payment_transaction_id,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         } else {
             $order->update([
                 'order_status' => Order::ORDER_STATUS_FAILED,
                 'payment_status' => Order::PAYMENT_STATUS_FAILED,
-                'payment_transaction_id' => $paymentData['tranRef'] ?? $order->payment_transaction_id
+                'payment_transaction_id' => $paymentData['tranRef'] ?? $order->payment_transaction_id,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         }
 
@@ -124,6 +230,33 @@ class StorePaymentService
         $orderStatus = $paymentData['isSuccessful'] ? Order::ORDER_STATUS_PROCESSING :
                        ($paymentData['isPending'] ? Order::ORDER_STATUS_PENDING : Order::ORDER_STATUS_FAILED);
 
+        // تحضير تفاصيل الدفع للتخزين
+        $paymentMethod = $orderData['payment_method'] ?? 'online';
+        $paymentDetails = [
+            'transaction_id' => $paymentData['tranRef'] ?? null,
+            'status' => $paymentData['responseStatus'] ?? $paymentData['status'] ?? null,
+            'amount' => $paymentData['amount'] ?? null,
+            'currency' => $paymentData['currency'] ?? 'SAR',
+            'payment_date' => now()->format('Y-m-d H:i:s'),
+            'message' => $paymentData['responseMessage'] ?? $paymentData['message'] ?? null,
+            'method' => $paymentMethod
+        ];
+
+        // إضافة تفاصيل إضافية حسب طريقة الدفع
+        if ($paymentMethod === 'paytabs') {
+            $paymentDetails['card_info'] = $paymentData['rawData']['payment_info']['card_type'] ?? null;
+            $paymentDetails['payment_gateway'] = 'PayTabs';
+        } elseif ($paymentMethod === 'tabby') {
+            if (!empty($paymentData['installments'])) {
+                $paymentDetails['installments'] = $paymentData['installments'];
+                $paymentDetails['installments_count'] = count($paymentData['installments']);
+                $paymentDetails['downpayment'] = $paymentData['downpayment'] ?? null;
+                $paymentDetails['downpayment_percent'] = $paymentData['downpayment_percent'] ?? null;
+                $paymentDetails['next_payment_date'] = $paymentData['next_payment_date'] ?? null;
+            }
+            $paymentDetails['payment_gateway'] = 'Tabby';
+        }
+
         $orderParams = [
             'user_id' => $orderData['user_id'],
             'total_amount' => $orderData['total_amount'],
@@ -133,14 +266,15 @@ class StorePaymentService
             'coupon_code' => $orderData['coupon_code'] ?? null,
             'shipping_address' => $orderData['shipping_address'],
             'phone' => $orderData['phone'],
-            'payment_method' => 'online',
+            'payment_method' => $paymentMethod,
             'payment_status' => $paymentStatus,
             'order_status' => $orderStatus,
             'notes' => $orderData['notes'] ?? null,
             'policy_agreement' => true,
             'payment_transaction_id' => $paymentData['tranRef'] ?? null,
             'payment_id' => $paymentData['paymentId'] ?? $orderData['payment_id'] ?? null,
-            'amount_paid' => $paymentData['isSuccessful'] ? ($paymentData['amount'] ?? $orderData['total_amount']) : 0
+            'amount_paid' => $paymentData['isSuccessful'] ? ($paymentData['amount'] ?? $orderData['total_amount']) : 0,
+            'payment_details' => json_encode($paymentDetails)
         ];
 
         $order = Order::create($orderParams);

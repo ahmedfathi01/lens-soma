@@ -331,6 +331,8 @@
                                 <span class="badge bg-secondary">الدفع عند الاستلام</span>
                             @elseif($booking->payment_method === 'tabby')
                                 <span class="badge bg-success">الدفع عبر تابي</span>
+                            @elseif($booking->payment_method === 'paytabs')
+                                <span class="badge bg-primary">الدفع عبر PayTabs</span>
                             @else
                                 <span class="badge bg-primary">الدفع الإلكتروني</span>
                             @endif
@@ -342,8 +344,8 @@
                             @if($booking->payment_method === 'cod')
                                 <span class="badge bg-info">سيتم الدفع عند الحضور للجلسة</span>
                             @else
-                                <span class="badge bg-{{ $booking->payment_status === 'PAID' ? 'success' : 'warning' }}">
-                                    {{ $booking->payment_status === 'PAID' ? 'تم الدفع' : 'قيد المعالجة' }}
+                                <span class="badge bg-{{ $booking->payment_status === 'PAID' || $booking->payment_status === 'paid' ? 'success' : 'warning' }}">
+                                    {{ $booking->payment_status === 'PAID' || $booking->payment_status === 'paid' ? 'تم الدفع' : 'قيد المعالجة' }}
                                 </span>
                             @endif
                         </div>
@@ -461,6 +463,72 @@
                                     </tfoot>
                                 </table>
                             </div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
+            @if($booking->payment_details && $booking->payment_method == 'paytabs')
+            <div class="mt-5">
+                <h5 class="text-primary mb-4"><i class="fas fa-credit-card me-2"></i> تفاصيل الدفع عبر PayTabs</h5>
+                <div class="paytabs-details p-3 bg-light rounded shadow-sm">
+                    @php
+                        $paymentDetails = json_decode($booking->payment_details, true);
+                    @endphp
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-money-bill-wave me-2"></i> حالة الدفع</h6>
+                                <p class="mb-0 fs-5">
+                                    @if(isset($paymentDetails['status']) && ($paymentDetails['status'] == 'PAID' || $paymentDetails['status'] == 'paid' || $paymentDetails['status'] == 'A'))
+                                        <span class="badge bg-success fs-6">تم الدفع بنجاح</span>
+                                    @elseif(isset($paymentDetails['status']) && ($paymentDetails['status'] == 'PENDING' || $paymentDetails['status'] == 'pending' || $paymentDetails['status'] == 'P'))
+                                        <span class="badge bg-warning fs-6">قيد المعالجة</span>
+                                    @else
+                                        <span class="badge bg-danger fs-6">{{ $paymentDetails['status'] ?? 'غير معروف' }}</span>
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            @if (isset($paymentDetails['transaction_id']))
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-hashtag me-2"></i> رقم المعاملة</h6>
+                                <p class="mb-0 fs-5">{{ $paymentDetails['transaction_id'] }}</p>
+                            </div>
+                            @endif
+                        </div>
+
+                        @if (isset($paymentDetails['amount']) && $paymentDetails['amount'] > 0)
+                        <div class="col-md-6">
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-money-bill-alt me-2"></i> المبلغ المدفوع</h6>
+                                <p class="mb-0 fs-5">{{ $paymentDetails['amount'] }} {{ $paymentDetails['currency'] ?? 'ريال سعودي' }}</p>
+                            </div>
+                        </div>
+                        @endif
+
+                        @if (isset($paymentDetails['payment_date']))
+                        <div class="col-md-6">
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-calendar-day me-2"></i> تاريخ الدفع</h6>
+                                <p class="mb-0 fs-5">{{ \Carbon\Carbon::parse($paymentDetails['payment_date'])->format('Y-m-d H:i') }}</p>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+
+                    @if(isset($paymentDetails['message']))
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-header bg-gradient bg-primary text-white">
+                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>تفاصيل إضافية</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ $paymentDetails['message'] }}</p>
                         </div>
                     </div>
                     @endif

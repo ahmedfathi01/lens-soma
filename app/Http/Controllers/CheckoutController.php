@@ -267,7 +267,7 @@ class CheckoutController extends Controller
         'shipping_address' => ['required', 'string', 'max:500'],
         'phone' => ['required', 'string', 'max:20', 'regex:/^([0-9\s\-\+\(\)]*)$/'],
         'notes' => ['nullable', 'string', 'max:1000'],
-        'payment_method' => ['required', 'in:cash,online,tabby'],
+        'payment_method' => ['required', 'in:cash,online,tabby,paytabs'],
         'policy_agreement' => ['required', 'accepted']
       ]);
 
@@ -543,7 +543,57 @@ class CheckoutController extends Controller
 
   public function paymentReturn(Request $request)
   {
-    return $this->paymentCallback($request);
+    try {
+      Log::info('PayTabs payment return received', [
+        'data' => $request->all(),
+        'query' => $request->query(),
+        'headers' => $request->header(),
+        'method' => $request->method(),
+        'transaction_id' => session('payment_transaction_id')
+      ]);
+
+      // تمرير الطلب للتعامل مع كلا نوعي الاستجابة (redirect و webhook)
+      return $this->paymentCallback($request);
+    } catch (\Exception $e) {
+      Log::error('Error processing payment return', [
+        'message' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+        'data' => $request->all()
+      ]);
+
+      return redirect()->route('checkout.index')
+        ->with('error', 'حدث خطأ أثناء معالجة الدفع. الرجاء الاتصال بالدعم الفني.');
+    }
+  }
+
+  public function paytabsWebhook(Request $request)
+  {
+    try {
+      Log::info('PayTabs webhook received', ['data' => $request->all()]);
+
+      // تخزين الطلب في الجلسة مؤقتًا للرجوع إليه في حالة فشل المعالجة
+      session(['paytabs_webhook_data' => $request->all()]);
+
+      $paymentData = $this->paymentService->processPaymentResponse($request);
+
+      $order = $this->paymentService->findExistingOrder($paymentData);
+
+      if (!$order) {
+        return response()->json(['status' => 'error', 'message' => 'Order not found'], 404);
+      }
+
+      $this->paymentService->updateOrderPaymentStatus($order, $paymentData);
+
+      return response()->json(['status' => 'success']);
+    } catch (\Exception $e) {
+      Log::error('Error processing PayTabs webhook', [
+        'message' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+        'data' => $request->all()
+      ]);
+
+      return response()->json(['status' => 'error', 'message' => 'Server error'], 500);
+    }
   }
 
   public function tabbyWebhook(Request $request)

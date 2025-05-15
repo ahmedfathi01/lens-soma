@@ -205,6 +205,7 @@ Route::middleware([
         Route::post('/checkout/payment/callback', [CheckoutController::class, 'paymentCallback'])->name('callback');
         Route::get('/checkout/payment/return', [CheckoutController::class, 'paymentReturn'])->name('return');
         Route::post('/checkout/payment/tabby-webhook', [CheckoutController::class, 'tabbyWebhook'])->name('tabby-webhook')->middleware('web');
+        Route::post('/checkout/payment/paytabs-webhook', [CheckoutController::class, 'paytabsWebhook'])->name('paytabs-webhook')->middleware('web');
     });
 
     // Coupon routes for checkout
@@ -259,6 +260,7 @@ Route::name('client.')->middleware(['auth'])->group(function () {
 Route::name('client.bookings.payment.')->group(function () {
     Route::post('/client/bookings/payment/callback', [BookingController::class, 'paymentCallback'])->name('callback');
     Route::get('/client/bookings/payment/return', [BookingController::class, 'paymentReturn'])->name('return');
+    Route::post('/client/bookings/payment/paytabs-webhook', [BookingController::class, 'paytabsWebhook'])->name('paytabs-webhook')->middleware('web');
 });
 
 Route::post('/client/bookings/available-slots', [BookingController::class, 'getAvailableTimeSlots'])

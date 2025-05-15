@@ -216,9 +216,9 @@
                                         <div class="payment-method info-item">
                                             <span class="info-label"><i class="fas fa-money-check me-2"></i>طريقة الدفع:</span>
                                             <span class="info-value">
-                                                <span class="badge {{ $booking->payment_method == 'cod' ? 'bg-secondary' : 'bg-info' }} payment-method-badge">
+                                                <span class="badge {{ $booking->payment_method == 'cod' ? 'bg-secondary' : ($booking->payment_method == 'tabby' ? 'bg-info' : ($booking->payment_method == 'paytabs' ? 'bg-primary' : 'bg-info')) }} payment-method-badge">
                                                     <i class="{{ $booking->payment_method == 'cod' ? 'fas fa-hand-holding-usd' : 'fas fa-credit-card' }} me-1"></i>
-                                                    {{ $booking->payment_method == 'cod' ? 'الدفع عند الاستلام' : 'دفع إلكتروني' }}
+                                                    {{ $booking->payment_method == 'cod' ? 'الدفع عند الاستلام' : ($booking->payment_method == 'tabby' ? 'دفع عبر تابي' : ($booking->payment_method == 'paytabs' ? 'دفع عبر PayTabs' : 'دفع إلكتروني')) }}
                                                 </span>
                                             </span>
                                         </div>
@@ -255,6 +255,58 @@
                                                 <div class="tabby-info-item">
                                                     <span class="tabby-info-label"><i class="fas fa-calendar-day me-2"></i>تاريخ الدفعة التالية:</span>
                                                     <span class="tabby-info-value">{{ \Carbon\Carbon::parse($paymentDetails['next_payment_date'])->format('Y-m-d') }}</span>
+                                                </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @elseif($booking->payment_details && $booking->payment_method == 'paytabs')
+                                        <div class="paytabs-details mt-3">
+                                            <div class="payment-method-header">
+                                                <i class="fas fa-credit-card me-2"></i> تفاصيل الدفع عبر PayTabs
+                                            </div>
+                                            <div class="paytabs-payment-info">
+                                                @php
+                                                    $paymentDetails = json_decode($booking->payment_details, true);
+                                                @endphp
+
+                                                <div class="paytabs-info-item">
+                                                    <span class="paytabs-info-label"><i class="fas fa-check-circle me-2"></i>حالة الدفع:</span>
+                                                    <span class="paytabs-info-value">
+                                                        @if(isset($paymentDetails['status']) && ($paymentDetails['status'] == 'PAID' || $paymentDetails['status'] == 'paid' || $paymentDetails['status'] == 'A'))
+                                                            <span class="badge bg-success">تم الدفع بنجاح</span>
+                                                        @elseif(isset($paymentDetails['status']) && ($paymentDetails['status'] == 'PENDING' || $paymentDetails['status'] == 'pending' || $paymentDetails['status'] == 'P'))
+                                                            <span class="badge bg-warning">قيد المعالجة</span>
+                                                        @else
+                                                            <span class="badge bg-danger">{{ $paymentDetails['status'] ?? 'غير معروف' }}</span>
+                                                        @endif
+                                                    </span>
+                                                </div>
+
+                                                @if (isset($paymentDetails['transaction_id']))
+                                                <div class="paytabs-info-item">
+                                                    <span class="paytabs-info-label"><i class="fas fa-hashtag me-2"></i>رقم المعاملة:</span>
+                                                    <span class="paytabs-info-value">{{ $paymentDetails['transaction_id'] }}</span>
+                                                </div>
+                                                @endif
+
+                                                @if (isset($paymentDetails['amount']) && $paymentDetails['amount'] > 0)
+                                                <div class="paytabs-info-item">
+                                                    <span class="paytabs-info-label"><i class="fas fa-money-bill-alt me-2"></i>المبلغ المدفوع:</span>
+                                                    <span class="paytabs-info-value">{{ $paymentDetails['amount'] }} {{ $paymentDetails['currency'] ?? 'ريال سعودي' }}</span>
+                                                </div>
+                                                @endif
+
+                                                @if (isset($paymentDetails['payment_date']))
+                                                <div class="paytabs-info-item">
+                                                    <span class="paytabs-info-label"><i class="fas fa-calendar-day me-2"></i>تاريخ الدفع:</span>
+                                                    <span class="paytabs-info-value">{{ \Carbon\Carbon::parse($paymentDetails['payment_date'])->format('Y-m-d H:i') }}</span>
+                                                </div>
+                                                @endif
+
+                                                @if (isset($paymentDetails['message']))
+                                                <div class="paytabs-info-item">
+                                                    <span class="paytabs-info-label"><i class="fas fa-info-circle me-2"></i>رسالة الدفع:</span>
+                                                    <span class="paytabs-info-value">{{ $paymentDetails['message'] }}</span>
                                                 </div>
                                                 @endif
                                             </div>

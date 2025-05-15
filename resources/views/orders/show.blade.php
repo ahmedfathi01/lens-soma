@@ -314,6 +314,96 @@
         </div>
         @endif
 
+        <!-- تفاصيل الدفع عبر PayTabs -->
+        @if($order->payment_method == 'paytabs' && $order->payment_details)
+        <div class="payment-details mt-5 p-4">
+            <h3 class="section-title text-center mb-4">تفاصيل الدفع عبر PayTabs</h3>
+
+            @php
+                $paymentDetails = json_decode($order->payment_details, true);
+            @endphp
+
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="card-icon mb-3 text-primary">
+                                <i class="bi bi-credit-card" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">حالة الدفع</h5>
+                            <div class="mt-2">
+                                @if($paymentDetails['status'] == 'A' || $paymentDetails['status'] == 'CAPTURED' || $paymentDetails['status'] == 'PAID')
+                                    <span class="badge bg-success fs-6">تم الدفع بنجاح</span>
+                                @elseif($paymentDetails['status'] == 'P' || $paymentDetails['status'] == 'PENDING')
+                                    <span class="badge bg-warning fs-6">قيد المعالجة</span>
+                                @else
+                                    <span class="badge bg-danger fs-6">{{ $paymentDetails['status'] ?? 'غير معروف' }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="card-icon mb-3 text-primary">
+                                <i class="bi bi-hash" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">رقم المعاملة</h5>
+                            <p class="card-text text-truncate">{{ $paymentDetails['transaction_id'] ?? 'غير متاح' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="card-icon mb-3 text-primary">
+                                <i class="bi bi-currency-exchange" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">المبلغ المدفوع</h5>
+                            <h3 class="card-value text-primary">{{ $paymentDetails['amount'] ?? $order->total_amount }} {{ $paymentDetails['currency'] ?? 'ريال' }}</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <div class="card-icon mb-3 text-primary">
+                                <i class="bi bi-calendar-date" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">تاريخ الدفع</h5>
+                            <p class="card-text">{{ isset($paymentDetails['payment_date']) ? \Carbon\Carbon::parse($paymentDetails['payment_date'])->format('Y/m/d H:i') : $order->created_at->format('Y/m/d H:i') }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if(!empty($paymentDetails['message']) || !empty($paymentDetails['card_info']))
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">معلومات إضافية</h4>
+                </div>
+                <div class="card-body">
+                    @if(!empty($paymentDetails['message']))
+                    <div class="mb-3">
+                        <strong>رسالة الدفع:</strong> {{ $paymentDetails['message'] }}
+                    </div>
+                    @endif
+
+                    @if(!empty($paymentDetails['card_info']))
+                    <div>
+                        <strong>معلومات البطاقة:</strong> {{ $paymentDetails['card_info'] }}
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+        </div>
+        @endif
+
         <!-- تتبع الطلب -->
         <div class="order-tracking mt-5 p-4">
             <h3 class="tracking-title text-center mb-4">تتبع الطلب</h3>

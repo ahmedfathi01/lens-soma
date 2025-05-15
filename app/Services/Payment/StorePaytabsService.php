@@ -28,60 +28,65 @@ class StorePaytabsService extends PaytabsService
             'name' => $customerData['name'] ?? '',
             'email' => $customerData['email'] ?? '',
             'phone' => $customerData['phone'] ?? '',
-            'address' => $customerData['address'] ?? '',
+            'street1' => $customerData['address'] ?? '',
             'city' => $customerData['city'] ?? '',
             'state' => $customerData['state'] ?? '',
-            'country' => $customerData['country'] ?? 'SA'
+            'country' => $customerData['country'] ?? 'SA',
+            'zip' => $customerData['zip'] ?? '00000'
         ];
     }
 
     /**
-     * إنشاء طلب دفع جديد
+     * إنشاء طلب دفع جديد للمتجر
      *
-     * @param array $orderData
-     * @param float $amount
-     * @param array $customerData
+     * يتجاوز هذا الدالة الموجودة في الفئة الأب لتتناسب مع متطلبات المتجر
+     *
+     * @param array $orderData بيانات الطلب
+     * @param float $amount المبلغ
+     * @param array $customerData بيانات العميل
      * @return array
      */
     public function createPaymentRequest(array $orderData, float $amount, array $customerData): array
     {
+        $paymentId = $orderData['payment_id'];
+        $description = $orderData['description'] ?? 'Order Payment';
+
         $reference = [
-            'transaction' => $orderData['payment_id'],
-            'order' => $orderData['payment_id']
+            'transaction' => $paymentId,
+            'order' => $paymentId
         ];
 
-        $returnUrl = config('app.url') . '/store/payment/callback';
-        $callbackUrl = config('app.url') . '/api/store/payment/webhook';
+        $returnUrl = route('checkout.payment.return');
 
         $payload = [
             'profile_id' => $this->profileId,
             'tran_type' => 'sale',
             'tran_class' => 'ecom',
-            'cart_id' => $orderData['payment_id'],
-            'cart_description' => $orderData['description'] ?? 'Order Payment',
+            'cart_id' => $paymentId,
+            'cart_description' => $description,
             'cart_currency' => $this->currency,
             'cart_amount' => $amount,
             'hide_shipping' => true,
-            'callback' => $callbackUrl,
+            'callback' => $returnUrl,
             'return' => $returnUrl,
             'customer_details' => [
                 'name' => $customerData['name'],
                 'email' => $customerData['email'],
                 'phone' => $customerData['phone'],
-                'street1' => $customerData['address'],
-                'city' => $customerData['city'],
-                'state' => $customerData['state'],
-                'country' => $customerData['country'],
+                'street1' => $customerData['street1'] ?? $customerData['address'] ?? '',
+                'city' => $customerData['city'] ?? '',
+                'state' => $customerData['state'] ?? '',
+                'country' => $customerData['country'] ?? 'SA',
                 'zip' => $orderData['zip'] ?? '00000'
             ],
             'shipping_details' => [
                 'name' => $customerData['name'],
                 'email' => $customerData['email'],
                 'phone' => $customerData['phone'],
-                'street1' => $customerData['address'],
-                'city' => $customerData['city'],
-                'state' => $customerData['state'],
-                'country' => $customerData['country'],
+                'street1' => $customerData['street1'] ?? $customerData['address'] ?? '',
+                'city' => $customerData['city'] ?? '',
+                'state' => $customerData['state'] ?? '',
+                'country' => $customerData['country'] ?? 'SA',
                 'zip' => $orderData['zip'] ?? '00000'
             ],
             'user_defined' => [
@@ -99,21 +104,21 @@ class StorePaytabsService extends PaytabsService
         ]);
 
         try {
-            // إرسال الطلب لبوابة الدفع
-            $response = $this->sendRequest('payment/request', $payload);
+            // إرسال الطلب لبوابة الدفع باستخدام الدالة المحمية من الفئة الأب
+            $response = $this->sendRequest('/payment/request', $payload);
 
-            if (!empty($response['redirect_url'])) {
+            if (!empty($response['success']) && !empty($response['data']['redirect_url'])) {
                 Log::info('PayTabs store payment request successful', [
                     'order_id' => $orderData['payment_id'],
-                    'tran_ref' => $response['tran_ref'] ?? null,
-                    'redirect_url' => $response['redirect_url']
+                    'tran_ref' => $response['data']['tran_ref'] ?? null,
+                    'redirect_url' => $response['data']['redirect_url']
                 ]);
 
                 return [
                     'success' => true,
                     'data' => [
-                        'tran_ref' => $response['tran_ref'] ?? null,
-                        'redirect_url' => $response['redirect_url']
+                        'tran_ref' => $response['data']['tran_ref'] ?? null,
+                        'redirect_url' => $response['data']['redirect_url']
                     ]
                 ];
             }
@@ -157,23 +162,49 @@ class StorePaytabsService extends PaytabsService
     public function extractPaymentData(Request $request): array
     {
         $data = $request->all();
+        $query = $request->query();
 
-        $tranRef = $data['tran_ref'] ?? $request->query('tranRef', '');
-        $cartId = $data['cart_id'] ?? '';
-        $respCode = $data['respcode'] ?? '';
-        $respStatus = $data['respstatus'] ?? '';
-        $respMessage = $data['respmsg'] ?? '';
-        $amount = $data['cart_amount'] ?? 0;
+        // تحسين سجلات التتبع
+        Log::info('PayTabs store extracting payment data', [
+            'all_data' => $data,
+            'query_params' => $query,
+            'method' => $request->method(),
+            'headers' => $request->headers->all(),
+            'payment_id' => session('payment_transaction_id')
+        ]);
 
-        Log::info('PayTabs store payment callback received', [
+        // استخراج المعرفات المهمة بطرق مختلفة
+        $tranRef = $data['tran_ref'] ??
+                  $data['payment_reference'] ??
+                  $query['tranRef'] ??
+                  $query['tran_ref'] ??
+                  $query['payment_reference'] ??
+                  session('payment_transaction_id');
+
+        $cartId = $data['cart_id'] ?? $query['cart_id'] ?? $data['order_id'] ?? null;
+        $respCode = $data['respcode'] ?? $data['response_code'] ?? $query['respCode'] ?? null;
+        $respStatus = $data['respstatus'] ?? $data['status'] ?? $data['response_status'] ?? $query['respStatus'] ?? null;
+        $respMessage = $data['respmsg'] ?? $data['message'] ?? $data['response_message'] ?? null;
+        $amount = $data['cart_amount'] ?? $data['amount'] ?? 0;
+
+        // تحقق من وجود معلومات في payment_result
+        $paymentResult = $data['payment_result'] ?? [];
+        if (!empty($paymentResult) && is_array($paymentResult)) {
+            $respCode = $respCode ?: ($paymentResult['response_code'] ?? null);
+            $respStatus = $respStatus ?: ($paymentResult['response_status'] ?? null);
+            $respMessage = $respMessage ?: ($paymentResult['response_message'] ?? null);
+        }
+
+        Log::info('PayTabs store payment data extracted', [
             'tran_ref' => $tranRef,
             'cart_id' => $cartId,
             'resp_code' => $respCode,
             'resp_status' => $respStatus,
-            'data' => $data
+            'resp_message' => $respMessage
         ]);
 
         $udf2 = $data['user_defined']['udf2'] ?? null;
+        $paymentId = null;
 
         if ($udf2) {
             $reference = json_decode($udf2, true);
@@ -182,18 +213,44 @@ class StorePaytabsService extends PaytabsService
             $paymentId = $cartId;
         }
 
+        // تحديد حالة الدفع
+        $isSuccess = $this->isSuccessfulStatus($respStatus);
+        $isPending = $this->isPendingStatus($respStatus);
+
         return [
             'tranRef' => $tranRef,
             'paymentId' => $paymentId,
             'cartId' => $cartId,
             'amount' => (float) $amount,
-            'isSuccessful' => $respStatus === 'A' || $respStatus === 'H',
-            'isPending' => $respStatus === 'P',
+            'isSuccessful' => $isSuccess,
+            'isPending' => $isPending,
             'responseCode' => $respCode,
             'responseStatus' => $respStatus,
             'responseMessage' => $respMessage,
             'rawData' => $data
         ];
+    }
+
+    /**
+     * التحقق ما إذا كانت حالة الدفع ناجحة
+     *
+     * @param string|null $status
+     * @return bool
+     */
+    protected function isSuccessfulStatus($status): bool
+    {
+        return in_array($status, ['A', 'H', 'APPROVED', 'CAPTURED', 'AUTHORIZED']);
+    }
+
+    /**
+     * التحقق ما إذا كانت حالة الدفع معلقة
+     *
+     * @param string|null $status
+     * @return bool
+     */
+    protected function isPendingStatus($status): bool
+    {
+        return in_array($status, ['P', 'PENDING', 'PENDING_PAYMENT', 'PENDING_PROCESS']);
     }
 
     /**
@@ -219,7 +276,7 @@ class StorePaytabsService extends PaytabsService
                 'payment_id' => $paymentData['paymentId'] ?? ''
             ]);
 
-            $response = $this->sendRequest('payment/query', $payload);
+            $response = $this->sendRequest('/payment/query', $payload);
 
             Log::info('PayTabs store payment verification response', [
                 'tran_ref' => $paymentData['tranRef'],
@@ -228,15 +285,16 @@ class StorePaytabsService extends PaytabsService
             ]);
 
             // تحديث بيانات الدفع
-            if (!empty($response['tran_ref'])) {
-                $paymentData['responseCode'] = $response['respcode'] ?? $paymentData['responseCode'];
-                $paymentData['responseStatus'] = $response['respstatus'] ?? $paymentData['responseStatus'];
-                $paymentData['responseMessage'] = $response['respmsg'] ?? $paymentData['responseMessage'];
-                $paymentData['amount'] = !empty($response['cart_amount']) ? (float) $response['cart_amount'] : $paymentData['amount'];
+            if (!empty($response['success']) && !empty($response['data'])) {
+                $result = $response['data'];
+                $paymentData['responseCode'] = $result['payment_result']['response_code'] ?? $paymentData['responseCode'];
+                $paymentData['responseStatus'] = $result['payment_result']['response_status'] ?? $paymentData['responseStatus'];
+                $paymentData['responseMessage'] = $result['payment_result']['response_message'] ?? $paymentData['responseMessage'];
+                $paymentData['amount'] = !empty($result['cart_amount']) ? (float) $result['cart_amount'] : $paymentData['amount'];
 
-                // التحقق من حالة الدفع
-                $paymentData['isSuccessful'] = $response['respstatus'] === 'A' || $response['respstatus'] === 'H';
-                $paymentData['isPending'] = $response['respstatus'] === 'P';
+                // التحقق من حالة الدفع باستخدام الدوال المحمية من الفئة الأب
+                $paymentData['isSuccessful'] = $this->isSuccessfulStatus($paymentData['responseStatus']);
+                $paymentData['isPending'] = $this->isPendingStatus($paymentData['responseStatus']);
 
                 $paymentData['rawData'] = array_merge($paymentData['rawData'] ?? [], $response);
             }

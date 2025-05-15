@@ -43,6 +43,14 @@ return [
         'is_sandbox' => env('TABBY_IS_SANDBOX', true),
     ],
 
+    'paytabs' => [
+        'profile_id' => env('PAYTABS_PROFILE_ID', '144643'),
+        'server_key' => env('PAYTABS_SERVER_KEY', 'S6J9R6TGHL-JKNBLNLD9W-KGH96M2BLD'),
+        'client_key' => env('PAYTABS_CLIENT_KEY', 'CQK267-62PMGK-Q2BQBD-MHBMVK'),
+        'currency' => env('PAYTABS_CURRENCY', 'EGP'),
+        'is_sandbox' => env('PAYTABS_IS_SANDBOX', true),
+    ],
+
     'firebase' => [
         'api_key' => env('FIREBASE_API_KEY'),
         'auth_domain' => env('FIREBASE_AUTH_DOMAIN'),

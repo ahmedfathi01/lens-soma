@@ -504,7 +504,21 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <div class="payment-method-card">
-                                    <input type="radio" name="payment_method" id="payment_cod" value="cod">
+                                    <input type="radio" name="payment_method" id="payment_paytabs" value="paytabs">
+                                    <label for="payment_paytabs" class="payment-method-label">
+                                        <div class="payment-icon">
+                                            <img src="https://paytabs.com/img/pt_logo.png" alt="PayTabs" style="height: 30px;">
+                                        </div>
+                                        <div class="payment-details">
+                                            <h5>الدفع الإلكتروني</h5>
+                                            <p>ادفع مباشرة عبر البطاقة الائتمانية أو مدى</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="payment-method-card">
+                                    <input type="radio" name="payment_method" id="payment_cod" value="cod" checked>
                                     <label for="payment_cod" class="payment-method-label">
                                         <div class="payment-icon">
                                             <i class="fas fa-money-bill-wave"></i>
@@ -541,6 +555,42 @@
                             <img src="https://mintlify.s3.us-west-1.amazonaws.com/tabby-5f40add6/images/tabby-payment-method.png" alt="شاشة تابي" />
                             <figcaption class="small">شكل شاشة تابي عند الدفع</figcaption>
                         </figure>
+                    </div>
+
+                    <!-- PayTabs Container -->
+                    <div id="paytabs-container" style="display: none;">
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>الدفع الإلكتروني مع PayTabs</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="payment-info">
+                                    <div class="text-center mb-4">
+                                        <img src="https://paytabs.com/img/pt_logo.png" alt="PayTabs" style="max-height: 50px;">
+                                    </div>
+
+                                    <div class="payment-details">
+                                        <div class="alert alert-info">
+                                            <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>معلومات عن الدفع:</h6>
+                                            <p class="mb-1">سيتم تحويلك إلى صفحة دفع آمنة تابعة لـ PayTabs لإتمام عملية الدفع بأمان.</p>
+                                            <p class="mb-0">يمكنك الدفع باستخدام البطاقات الائتمانية أو بطاقة مدى.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="payment-methods-icons text-center mt-4">
+                                        <i class="fab fa-cc-visa fa-2x mx-2" style="color: #1A1F71;"></i>
+                                        <i class="fab fa-cc-mastercard fa-2x mx-2" style="color: #EB001B;"></i>
+                                        <i class="fab fa-cc-amex fa-2x mx-2" style="color: #006FCF;"></i>
+                                        <img src="https://ngenius.com/wp-content/uploads/2022/03/mada.png" alt="مدى" style="height: 25px; vertical-align: text-bottom; margin: 0 8px;">
+                                    </div>
+
+                                    <div class="payment-notes mt-4">
+                                        <h6 class="mb-3 title-with-icon"><i class="fas fa-shield-alt me-2"></i>الدفع الآمن</h6>
+                                        <p>جميع المعاملات آمنة ومشفرة بنسبة 100%. نحن نستخدم أحدث تقنيات التشفير لحماية معلوماتك.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Bank Transfer Container -->
@@ -642,8 +692,6 @@
                                         </div>
                                     </div>
                                 </div>
-
-                        >
                             </div>
                         </div>
                     </div>
@@ -709,5 +757,42 @@
     <script src="{{ asset('assets/js/client/booking-core.js') }}?t={{ time() }}"></script>
     <script src="{{ asset('assets/js/client/booking-coupon.js') }}?t={{ time() }}"></script>
     <script src="{{ asset('assets/js/client/booking-payment.js') }}?t={{ time() }}"></script>
+    <script>
+        // إضافة وظيفة عرض وإخفاء معلومات طرق الدفع
+        document.addEventListener('DOMContentLoaded', function() {
+            const paymentMethodRadios = document.querySelectorAll('input[name="payment_method"]');
+            const tabbyContainer = document.getElementById('tabby-container');
+            const paytabsContainer = document.getElementById('paytabs-container');
+            const bankTransferContainer = document.getElementById('bank-transfer-container');
+
+            paymentMethodRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    // إخفاء جميع الحاويات أولاً
+                    if (tabbyContainer) tabbyContainer.style.display = 'none';
+                    if (paytabsContainer) paytabsContainer.style.display = 'none';
+                    if (bankTransferContainer) bankTransferContainer.style.display = 'none';
+
+                    // عرض الحاوية المناسبة بناءً على الاختيار
+                    if (this.value === 'tabby' && tabbyContainer) {
+                        tabbyContainer.style.display = 'block';
+                    } else if (this.value === 'paytabs' && paytabsContainer) {
+                        paytabsContainer.style.display = 'block';
+                    } else if (this.value === 'cod' && bankTransferContainer) {
+                        bankTransferContainer.style.display = 'block';
+                    }
+                });
+            });
+
+            // تشغيل الحدث للعناصر المحددة افتراضيًا
+            const selectedPaymentMethod = document.querySelector('input[name="payment_method"]:checked');
+            if (selectedPaymentMethod) {
+                selectedPaymentMethod.dispatchEvent(new Event('change'));
+            } else if (document.getElementById('payment_cod')) {
+                // تحديد الدفع عبر الحساب البنكي افتراضيًا
+                document.getElementById('payment_cod').checked = true;
+                document.getElementById('payment_cod').dispatchEvent(new Event('change'));
+            }
+        });
+    </script>
 </body>
 </html>
