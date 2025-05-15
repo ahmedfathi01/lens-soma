@@ -34,7 +34,8 @@ class Booking extends Model
         'coupon_id',
         'coupon_code',
         'uuid',
-        'booking_number'
+        'booking_number',
+        'payment_details'
     ];
 
     protected $casts = [
@@ -46,7 +47,8 @@ class Booking extends Model
         'original_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'image_consent' => 'boolean',
-        'terms_consent' => 'boolean'
+        'terms_consent' => 'boolean',
+        'payment_details' => 'json'
     ];
 
     /**

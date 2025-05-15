@@ -145,7 +145,7 @@
                                                     {{ $addon->name }}
                                                 </div>
                                                 <div class="addon-price">
-                                                    {{ $addon->pivot->quantity }} × {{ $addon->pivot->price_at_booking }} درهم
+                                                    {{ $addon->pivot->quantity }} × {{ $addon->pivot->price_at_booking }} ريال سعودي
                                                 </div>
                                             </li>
                                         @endforeach
@@ -165,8 +165,8 @@
                                     <div class="payment-status">
                                         <span class="status-label"><i class="fas fa-cash-register me-2"></i>حالة الدفع:</span>
                                         <span class="status-value">
-                                            <span class="badge {{ $booking->payment_status == 'success' ? 'bg-success' : ($booking->payment_status == 'pending' ? 'bg-warning' : 'bg-danger') }} status-badge">
-                                                {{ $booking->payment_status == 'success' ? 'تم الدفع' : ($booking->payment_status == 'pending' ? 'قيد الانتظار' : 'فشل الدفع') }}
+                                            <span class="badge {{ $booking->payment_status == 'paid' ? 'bg-success' : ($booking->payment_status == 'pending' ? 'bg-warning' : 'bg-danger') }} status-badge">
+                                                {{ $booking->payment_status == 'paid' ? 'تم الدفع' : ($booking->payment_status == 'pending' ? 'قيد الانتظار' : 'فشل الدفع') }}
                                             </span>
                                         </span>
                                     </div>
@@ -174,13 +174,13 @@
                                     <div class="payment-details">
                                         <div class="original-price">
                                             <i class="fas fa-tag me-2"></i>
-                                            <strong>المبلغ الأصلي:</strong> <span>{{ $booking->original_amount }} درهم</span>
+                                            <strong>المبلغ الأصلي:</strong> <span>{{ $booking->original_amount }} ريال سعودي</span>
                                         </div>
 
                                         @if($booking->discount_amount > 0)
                                         <div class="discount-amount">
                                             <i class="fas fa-percentage me-2"></i>
-                                            <strong>قيمة الخصم:</strong> <span class="text-success fw-bold">- {{ $booking->discount_amount }} درهم</span>
+                                            <strong>قيمة الخصم:</strong> <span class="text-success fw-bold">- {{ $booking->discount_amount }} ريال سعودي</span>
 
                                             @if($booking->coupon_code)
                                             <div class="coupon-badge">
@@ -195,7 +195,7 @@
 
                                         <div class="final-price">
                                             <i class="fas fa-money-bill-wave me-2"></i>
-                                            <strong>المبلغ النهائي:</strong> <span class="text-primary fw-bold fs-5">{{ $booking->total_amount }} درهم</span>
+                                            <strong>المبلغ النهائي:</strong> <span class="text-primary fw-bold fs-5">{{ $booking->total_amount }} ريال سعودي</span>
                                         </div>
                                     </div>
 
@@ -223,9 +223,119 @@
                                             </span>
                                         </div>
                                     @endif
+
+                                    @if($booking->payment_details && $booking->payment_method == 'tabby')
+                                        <div class="tabby-details mt-3">
+                                            <div class="payment-method-header">
+                                                <i class="fas fa-credit-card me-2"></i> تفاصيل التقسيط عبر تابي
+                                            </div>
+                                            <div class="tabby-payment-info">
+                                                @php
+                                                    $paymentDetails = json_decode($booking->payment_details, true);
+                                                    $hasInstallments = isset($paymentDetails['installments']) && !empty($paymentDetails['installments']);
+                                                    $downpayment = $paymentDetails['downpayment'] ?? null;
+                                                    $downpaymentPercent = $paymentDetails['downpayment_percent'] ?? null;
+                                                @endphp
+
+                                                @if ($downpayment)
+                                                <div class="tabby-info-item">
+                                                    <span class="tabby-info-label"><i class="fas fa-money-bill-wave me-2"></i>الدفعة المقدمة:</span>
+                                                    <span class="tabby-info-value">{{ $downpayment }} ريال سعودي ({{ $downpaymentPercent }}%)</span>
+                                                </div>
+                                                @endif
+
+                                                @if (isset($paymentDetails['installments_count']))
+                                                <div class="tabby-info-item">
+                                                    <span class="tabby-info-label"><i class="fas fa-list-ol me-2"></i>عدد الأقساط المتبقية:</span>
+                                                    <span class="tabby-info-value">{{ $paymentDetails['installments_count'] }} أقساط</span>
+                                                </div>
+                                                @endif
+
+                                                @if (isset($paymentDetails['next_payment_date']))
+                                                <div class="tabby-info-item">
+                                                    <span class="tabby-info-label"><i class="fas fa-calendar-day me-2"></i>تاريخ الدفعة التالية:</span>
+                                                    <span class="tabby-info-value">{{ \Carbon\Carbon::parse($paymentDetails['next_payment_date'])->format('Y-m-d') }}</span>
+                                                </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
+
+                        <!-- تفاصيل أقساط التقسيط عبر تابي -->
+                        @if($booking->payment_details && $booking->payment_method == 'tabby')
+                        @php
+                            $paymentDetails = json_decode($booking->payment_details, true);
+                            $hasInstallments = isset($paymentDetails['installments']) && !empty($paymentDetails['installments']);
+                        @endphp
+
+                        @if ($hasInstallments)
+                        <div class="col-md-12 mt-4">
+                            <div class="card info-card tabby-installments-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>جدول الأقساط - تابي</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-bordered">
+                                            <thead class="table-primary">
+                                                <tr>
+                                                    <th class="text-center" style="width: 50px;">#</th>
+                                                    <th class="text-center">تاريخ الاستحقاق</th>
+                                                    <th class="text-center">القيمة</th>
+                                                    <th class="text-center">الحالة</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- عرض الدفعة المقدمة -->
+                                                @if (isset($paymentDetails['downpayment']))
+                                                <tr class="table-success">
+                                                    <td class="text-center"><i class="fas fa-check-circle text-success"></i></td>
+                                                    <td class="text-center">{{ $booking->created_at->format('Y-m-d') }}</td>
+                                                    <td class="text-center fw-bold">{{ $paymentDetails['downpayment'] }} ريال سعودي</td>
+                                                    <td class="text-center"><span class="badge bg-success">تم الدفع (دفعة مقدمة)</span></td>
+                                                </tr>
+                                                @endif
+
+                                                <!-- عرض الأقساط المتبقية -->
+                                                @foreach($paymentDetails['installments'] as $index => $installment)
+                                                @php
+                                                    $dueDate = \Carbon\Carbon::parse($installment['due_date']);
+                                                    $isPaid = false; // يمكن تعديل هذا لاحقاً إذا كان لديك معلومات عن حالة الدفع
+                                                    $isPending = $dueDate->isFuture();
+                                                    $isDue = $dueDate->isPast() && !$isPaid;
+                                                @endphp
+                                                <tr class="{{ $isPaid ? 'table-success' : ($isDue ? 'table-danger' : 'table-light') }}">
+                                                    <td class="text-center">{{ $index + 1 }}</td>
+                                                    <td class="text-center">{{ $dueDate->format('Y-m-d') }}</td>
+                                                    <td class="text-center fw-bold">{{ $installment['amount'] }} ريال سعودي</td>
+                                                    <td class="text-center">
+                                                        @if($isPaid)
+                                                            <span class="badge bg-success">تم الدفع</span>
+                                                        @elseif($isDue)
+                                                            <span class="badge bg-danger">متأخر</span>
+                                                        @else
+                                                            <span class="badge bg-warning">قادم</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot class="table-primary">
+                                                <tr>
+                                                    <td class="text-start" colspan="2"><strong>إجمالي مبلغ التقسيط</strong></td>
+                                                    <td class="text-center fw-bold" colspan="2">{{ $booking->total_amount }} ريال سعودي</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+                        @endif
 
                         <!-- تحديث الحالة -->
                         <div class="col-12 mt-4">

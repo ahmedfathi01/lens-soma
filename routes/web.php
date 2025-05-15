@@ -18,7 +18,7 @@ use App\Http\Controllers\{
     PolicyController,
     HomeController,
     GalleryController,
-
+    PortfolioController,
 };
 
 use App\Http\Controllers\Admin\{
@@ -34,7 +34,6 @@ use App\Http\Controllers\Admin\{
     BookingController as AdminBookingController,
     GalleryController as AdminGalleryController,
     StudioReportsController,
-
     CouponController as AdminCouponController
 };
 
@@ -301,3 +300,6 @@ Route::get('/test-tabby', function() {
         ];
     }
 })->middleware('role:admin');
+
+// Profile Portfolio Route
+Route::get('/portfolio', [PortfolioController::class, 'show'])->name('portfolio.profile');

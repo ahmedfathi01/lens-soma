@@ -252,16 +252,55 @@ document.addEventListener('DOMContentLoaded', function() {
         void priceSection.offsetWidth;
         priceSection.classList.add('animate-slide-in');
 
-        const addonCheckboxes = document.querySelectorAll('input[name^="addons"]:checked');
+        // Calculate addons total including all types of addons
         let addonsTotal = 0;
+        let hasAddons = false;
+
+        // Regular addons
+        const addonCheckboxes = document.querySelectorAll('input[name^="addons"]:checked');
         if (addonCheckboxes.length > 0) {
+            hasAddons = true;
             addonCheckboxes.forEach(checkbox => {
                 const addonCard = checkbox.closest('.card');
                 const addonPriceText = addonCard.querySelector('.badge').textContent;
                 const addonPrice = parseFloat(addonPriceText.match(/\d+(\.\d+)?/)[0]);
                 addonsTotal += addonPrice;
             });
+        }
 
+        // Tabi and Promo addons
+        const tabiPromoCheckboxes = document.querySelectorAll('input[type="checkbox"][name^="tabby_"]:checked, input[type="checkbox"][name^="promo_"]:checked');
+        if (tabiPromoCheckboxes.length > 0) {
+            hasAddons = true;
+            tabiPromoCheckboxes.forEach(checkbox => {
+                const priceElement = checkbox.closest('.form-check').querySelector('.badge');
+                if (priceElement) {
+                    const priceText = priceElement.textContent;
+                    const priceMatch = priceText.match(/\d+(\.\d+)?/);
+                    if (priceMatch && priceMatch[0]) {
+                        addonsTotal += parseFloat(priceMatch[0]);
+                    }
+                }
+            });
+        }
+
+        // Any other addon inputs
+        const otherAddonInputs = document.querySelectorAll('input[type="checkbox"][name*="addon"]:checked:not([name^="addons"]), input[type="radio"][name*="addon"]:checked');
+        if (otherAddonInputs.length > 0) {
+            hasAddons = true;
+            otherAddonInputs.forEach(input => {
+                const priceElement = input.closest('.form-check, .card-body').querySelector('.badge');
+                if (priceElement) {
+                    const priceText = priceElement.textContent;
+                    const priceMatch = priceText.match(/\d+(\.\d+)?/);
+                    if (priceMatch && priceMatch[0]) {
+                        addonsTotal += parseFloat(priceMatch[0]);
+                    }
+                }
+            });
+        }
+
+        if (hasAddons) {
             let addonRow = document.querySelector('.price-row.addons-row');
             if (!addonRow) {
                 const priceBody = document.querySelector('.price-breakdown-body');
@@ -315,7 +354,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.addEventListener('click', function(e) {
-        if (e.target && e.target.classList.contains('addon-checkbox')) {
+        // Check for addon selections and update price calculations
+        const isAddonInput =
+            (e.target && e.target.classList.contains('addon-checkbox')) ||
+            (e.target && (e.target.name && (e.target.name.startsWith('tabby_') || e.target.name.startsWith('promo_')))) ||
+            (e.target && (e.target.name && e.target.name.includes('addon')));
+
+        if (isAddonInput) {
             if (!couponDetails.classList.contains('d-none')) {
                 const couponCode = couponCodeDisplay.textContent;
                 const selectedPackageRadio = document.querySelector('.package-select:checked');

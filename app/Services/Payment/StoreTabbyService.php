@@ -481,10 +481,25 @@ class StoreTabbyService
         try {
             Log::info('Capturing Tabby payment', ['payment_id' => $paymentId]);
 
-            $payload = [];
-            if ($amount !== null) {
-                $payload['amount'] = $amount;
+            // التحقق أولاً من تفاصيل الدفع لمعرفة المبلغ الإجمالي إذا لم يتم تحديده
+            if ($amount === null) {
+                // الحصول على تفاصيل الدفع
+                $paymentDetails = $this->refreshPaymentStatus($paymentId);
+                if (isset($paymentDetails['amount']) && $paymentDetails['amount'] > 0) {
+                    $amount = (float) $paymentDetails['amount'];
+                } else {
+                    // إذا لم نستطع الحصول على المبلغ، نضع قيمة افتراضية
+                    $amount = 1.0; // المبلغ الافتراضي
+                }
             }
+
+            // تحضير البيانات المرسلة وفق المطلوب من Tabby API
+            $payload = [
+                'amount' => number_format($amount, 2, '.', ''), // تنسيق المبلغ بدقة رقمين عشريين
+                'reference_id' => 'capture-' . $paymentId . '-' . time() // إضافة معرف مرجعي فريد للتتبع
+            ];
+
+            Log::info('Tabby capture payload', ['payload' => $payload]);
 
             $response = Http::withToken($this->secretKey)
                 ->withHeaders([
@@ -518,7 +533,7 @@ class StoreTabbyService
             return [
                 'success' => false,
                 'error' => [
-                    'message' => 'Failed to capture payment: ' . ($responseData['message'] ?? 'Unknown error'),
+                    'message' => 'Failed to capture payment: ' . ($responseData['error'] ?? 'Unknown error'),
                     'details' => $responseData,
                     'status_code' => $statusCode
                 ]

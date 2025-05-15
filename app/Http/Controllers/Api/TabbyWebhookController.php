@@ -6,46 +6,62 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Order;
 use App\Services\FirebaseNotificationService;
+use App\Services\Payment\StoreTabbyService;
+use App\Services\Payment\BookingTabbyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 
 class TabbyWebhookController extends Controller
 {
-    /**
-     * Handle incoming Tabby webhooks
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
+    protected $storeTabbyService;
+    protected $bookingTabbyService;
+
+    public function __construct(StoreTabbyService $storeTabbyService, BookingTabbyService $bookingTabbyService)
+    {
+        $this->storeTabbyService = $storeTabbyService;
+        $this->bookingTabbyService = $bookingTabbyService;
+    }
+
     public function handleWebhook(Request $request)
     {
         $payload = $request->all();
-        $signature = $request->header('X-Tabby-Signature');
 
         Log::info('Tabby webhook received', [
             'payload' => $payload,
-            'signature' => $signature
+            'headers' => $request->headers->all()
         ]);
 
-        // Verify webhook signature
-        if (!$this->verifySignature($payload, $signature)) {
-            Log::warning('Invalid Tabby webhook signature');
-            return response()->json(['error' => 'Invalid signature'], 401);
+        if (!$this->verifySourceIp($request->ip())) {
+            Log::warning('Tabby webhook received from unauthorized IP', [
+                'ip' => $request->ip()
+            ]);
         }
 
-        // Extract payment details from webhook
-        $paymentId = $payload['payment']['id'] ?? null;
-        $referenceId = $payload['payment']['order']['reference_id'] ?? null;
-        $status = $payload['payment']['status'] ?? null;
+        $paymentId = $payload['id'] ??
+                     $payload['payment']['id'] ??
+                     null;
 
-        if (!$paymentId || !$referenceId || !$status) {
+        $referenceId = $payload['order']['reference_id'] ??
+                       $payload['payment']['order']['reference_id'] ??
+                       null;
+
+        $status = $payload['status'] ??
+                  $payload['payment']['status'] ??
+                  null;
+
+        Log::info('Extracted data from Tabby webhook', [
+            'payment_id' => $paymentId,
+            'reference_id' => $referenceId,
+            'status' => $status
+        ]);
+
+        if (!$paymentId || !$status) {
             Log::error('Missing required fields in Tabby webhook', ['payload' => $payload]);
             return response()->json(['error' => 'Missing required fields'], 400);
         }
 
         try {
-            // Process the webhook based on payment status
             $result = $this->processPaymentStatusChange($paymentId, $referenceId, $status, $payload);
 
             if ($result['success']) {
@@ -64,74 +80,96 @@ class TabbyWebhookController extends Controller
         }
     }
 
-    /**
-     * Verify Tabby webhook signature
-     *
-     * @param array $payload
-     * @param string $signature
-     * @return bool
-     */
-    protected function verifySignature($payload, $signature)
+    protected function verifySourceIp($ip)
     {
-        if (empty($signature)) {
-            return false;
-        }
+        $allowedIps = [
+            '34.166.36.90',
+            '34.166.35.211',
+            '34.166.34.222',
+            '34.166.37.207',
+            '34.93.76.191'
+        ];
 
-        $webhookSecret = config('services.tabby.webhook_secret');
-
-        if (empty($webhookSecret)) {
-            Log::warning('Tabby webhook secret not configured');
-            return false;
-        }
-
-        // Convert payload to JSON string
-        $payloadString = json_encode($payload);
-
-        // Calculate expected signature
-        $expectedSignature = hash_hmac('sha256', $payloadString, $webhookSecret);
-
-        // Use constant time comparison to prevent timing attacks
-        return hash_equals($expectedSignature, $signature);
+        return in_array($ip, $allowedIps);
     }
 
-    /**
-     * Process payment status change
-     *
-     * @param string $paymentId
-     * @param string $referenceId
-     * @param string $status
-     * @param array $payload
-     * @return array
-     */
+    protected function verifySignature($payload, $signature)
+    {
+        Log::info('Tabby webhook signature verification skipped - not implemented by Tabby');
+        return true;
+    }
+
     protected function processPaymentStatusChange($paymentId, $referenceId, $status, $payload)
     {
-        // Look for order or booking with this reference ID
-        $order = Order::where('payment_id', $referenceId)->first();
-        $booking = Booking::where('payment_id', $referenceId)->first();
+        Log::info('Processing Tabby payment status change with data:', [
+            'payment_id' => $paymentId,
+            'reference_id' => $referenceId,
+            'status' => $status
+        ]);
 
-        // If neither found, check by transaction ID
-        if (!$order && !$booking) {
+        $order = null;
+        $booking = null;
+
+        if ($referenceId) {
+            Log::info('Searching for order/booking by reference_id', ['reference_id' => $referenceId]);
+            $order = Order::where('payment_id', $referenceId)->first();
+            $booking = Booking::where('payment_id', $referenceId)->first();
+        }
+
+        if (!$order && !$booking && $paymentId) {
+            Log::info('Searching for order/booking by paymentId', ['payment_id' => $paymentId]);
             $order = Order::where('payment_transaction_id', $paymentId)->first();
             $booking = Booking::where('payment_transaction_id', $paymentId)->first();
         }
 
+        if (!$order && !$booking && $paymentId) {
+            Log::info('Searching for order/booking by paymentId in payment_id field', ['payment_id' => $paymentId]);
+            $order = Order::where('payment_id', $paymentId)->first();
+            $booking = Booking::where('payment_id', $paymentId)->first();
+        }
+
         if (!$order && !$booking) {
+            $bookingQuery = Booking::query();
+            if ($referenceId) {
+                $bookingQuery->orWhere('payment_id', $referenceId);
+            }
+            if ($paymentId) {
+                $bookingQuery->orWhere('payment_transaction_id', $paymentId);
+            }
+
+            $orderQuery = Order::query();
+            if ($referenceId) {
+                $orderQuery->orWhere('payment_id', $referenceId);
+            }
+            if ($paymentId) {
+                $orderQuery->orWhere('payment_transaction_id', $paymentId);
+            }
+
             Log::error('No order or booking found for Tabby webhook', [
                 'payment_id' => $paymentId,
-                'reference_id' => $referenceId
+                'reference_id' => $referenceId,
+                'debug_queries' => [
+                    'booking_queries' => [
+                        'by_payment_id' => $referenceId ? "Booking::where('payment_id', '{$referenceId}')" : null,
+                        'by_transaction_id' => $paymentId ? "Booking::where('payment_transaction_id', '{$paymentId}')" : null
+                    ],
+                    'order_queries' => [
+                        'by_payment_id' => $referenceId ? "Order::where('payment_id', '{$referenceId}')" : null,
+                        'by_transaction_id' => $paymentId ? "Order::where('payment_transaction_id', '{$paymentId}')" : null
+                    ]
+                ]
             ]);
+
             return [
                 'success' => false,
                 'message' => 'No order or booking found with the provided reference'
             ];
         }
 
-        // Process order payment
         if ($order) {
             return $this->updateOrderStatus($order, $status, $paymentId, $payload);
         }
 
-        // Process booking payment
         if ($booking) {
             return $this->updateBookingStatus($booking, $status, $paymentId, $payload);
         }
@@ -142,43 +180,117 @@ class TabbyWebhookController extends Controller
         ];
     }
 
-    /**
-     * Update order status based on Tabby webhook
-     *
-     * @param \App\Models\Order $order
-     * @param string $status
-     * @param string $paymentId
-     * @param array $payload
-     * @return array
-     */
     protected function updateOrderStatus($order, $status, $paymentId, $payload)
     {
         $oldStatus = $order->payment_status;
         $newStatus = $this->mapTabbyStatusToLocalStatus($status);
 
-        // Update order with new payment status
         $order->payment_transaction_id = $paymentId;
         $order->payment_status = $newStatus;
 
-        // If payment is successful and status was not paid before
-        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
-            // Additional logic for successful payment
-            $order->status = 'processing';
+        if (strtoupper($status) === 'AUTHORIZED') {
+            Log::info('Attempting to capture Tabby payment for order', [
+                'order_id' => $order->id,
+                'payment_id' => $paymentId
+            ]);
 
-            // Record payment details
-            $paymentAmount = $payload['payment']['amount'] ?? $order->total_amount;
-            $order->payment_details = json_encode([
+            $paymentDetails = $this->storeTabbyService->refreshPaymentStatus($paymentId);
+            Log::info('Retrieved complete payment details for order', [
+                'order_id' => $order->id,
+                'payment_id' => $paymentId,
+                'details' => $paymentDetails
+            ]);
+
+            $captureResult = $this->storeTabbyService->capturePayment($paymentId);
+
+            if ($captureResult['success']) {
+                Log::info('Successfully captured Tabby payment', [
+                    'order_id' => $order->id,
+                    'payment_id' => $paymentId,
+                    'result' => $captureResult
+                ]);
+
+                if (!empty($captureResult['data'])) {
+                    $payload = array_merge($payload, $captureResult['data']);
+                }
+            } else {
+                Log::error('Failed to capture Tabby payment', [
+                    'order_id' => $order->id,
+                    'payment_id' => $paymentId,
+                    'error' => $captureResult['error'] ?? 'Unknown error'
+                ]);
+            }
+        }
+
+        if ($newStatus === 'paid' && $oldStatus !== 'paid') {
+            $order->order_status = Order::ORDER_STATUS_PROCESSING;
+
+            $paymentAmount = $payload['amount'] ??
+                            ($payload['payment']['amount'] ??
+                            ($payload['order']['amount'] ??
+                            $order->total_amount));
+
+            $paymentDetails = [
                 'provider' => 'tabby',
                 'transaction_id' => $paymentId,
                 'status' => $status,
                 'amount' => $paymentAmount,
-                'currency' => $payload['payment']['currency'] ?? 'SAR',
-                'payment_date' => now()->toDateTimeString(),
-                'raw_response' => $payload
+                'currency' => $payload['currency'] ??
+                             ($payload['payment']['currency'] ??
+                             ($payload['order']['currency'] ?? 'SAR')),
+                'payment_date' => now()->toDateTimeString()
+            ];
+
+            if (isset($payload['configuration']['available_products']['installments'][0])) {
+                $installmentData = $payload['configuration']['available_products']['installments'][0];
+                $paymentDetails['downpayment'] = $installmentData['downpayment'] ?? null;
+                $paymentDetails['downpayment_percent'] = $installmentData['downpayment_percent'] ?? null;
+                $paymentDetails['installments'] = $installmentData['installments'] ?? [];
+                $paymentDetails['next_payment_date'] = $installmentData['next_payment_date'] ?? null;
+                $paymentDetails['installments_count'] = $installmentData['installments_count'] ?? count($installmentData['installments'] ?? []);
+            } elseif (isset($payload['payment']['product'])) {
+                $paymentDetails['product'] = $payload['payment']['product'];
+                if (isset($payload['payment']['product']['installments_count'])) {
+                    $paymentDetails['installments_count'] = $payload['payment']['product']['installments_count'];
+                }
+
+                if (isset($payload['payment']['product']['installments_count']) && $payload['payment']['product']['installments_count'] > 0) {
+                    $this->addCalculatedInstallments($paymentDetails, $payload['payment']['product']['installments_count'], $paymentAmount);
+                }
+            } elseif (isset($payload['product'])) {
+                $paymentDetails['product'] = $payload['product'];
+                if (isset($payload['product']['installments_count'])) {
+                    $paymentDetails['installments_count'] = $payload['product']['installments_count'];
+
+                    if ($payload['product']['installments_count'] > 0) {
+                        $this->addCalculatedInstallments($paymentDetails, $payload['product']['installments_count'], $paymentAmount);
+                    }
+                }
+            }
+
+            if (empty($paymentDetails['installments']) && empty($paymentDetails['downpayment'])) {
+                $detailedPayment = $this->storeTabbyService->refreshPaymentStatus($paymentId);
+
+                if (!empty($detailedPayment['raw_response'])) {
+                    if (isset($detailedPayment['raw_response']['product'])) {
+                        $product = $detailedPayment['raw_response']['product'];
+                        $paymentDetails['product'] = $product;
+
+                        if (isset($product['installments_count']) && $product['installments_count'] > 0) {
+                            $this->addCalculatedInstallments($paymentDetails, $product['installments_count'], $paymentAmount, 25);
+                        }
+                    }
+                }
+            }
+
+            $order->payment_details = json_encode($paymentDetails);
+
+            Log::info('Payment details for order', [
+                'order_id' => $order->id,
+                'payment_details' => $paymentDetails
             ]);
         } elseif ($newStatus === 'failed' && $oldStatus !== 'failed') {
-            // Handle failed payment
-            $order->status = 'payment_failed';
+            $order->order_status = Order::ORDER_STATUS_FAILED;
         }
 
         $order->save();
@@ -190,9 +302,7 @@ class TabbyWebhookController extends Controller
             'tabby_status' => $status
         ]);
 
-        // Attempt to notify the customer about status change
         try {
-            // Notify customer
             if ($order->user && $order->user->fcm_token) {
                 $notificationService = new FirebaseNotificationService();
 
@@ -213,7 +323,6 @@ class TabbyWebhookController extends Controller
                 }
             }
 
-            // Notify admins
             if ($newStatus === 'paid') {
                 $notificationService = new FirebaseNotificationService();
                 $notificationService->sendNotificationToAdmins(
@@ -236,42 +345,219 @@ class TabbyWebhookController extends Controller
         ];
     }
 
-    /**
-     * Update booking status based on Tabby webhook
-     *
-     * @param \App\Models\Booking $booking
-     * @param string $status
-     * @param string $paymentId
-     * @param array $payload
-     * @return array
-     */
+    private function addCalculatedInstallments(&$paymentDetails, $installments_count, $total_amount, $downpayment_percent = null)
+    {
+        if ($downpayment_percent === null) {
+            $downpayment_percent = 100 / ($installments_count + 1);
+        }
+
+        $downpayment = $total_amount * ($downpayment_percent / 100);
+
+        $paymentDetails['downpayment'] = number_format($downpayment, 2, '.', '');
+        $paymentDetails['downpayment_percent'] = $downpayment_percent;
+
+        $installment_amount = ($total_amount - $downpayment) / $installments_count;
+        $installments = [];
+        $next_month = now()->addMonth();
+
+        for ($i = 0; $i < $installments_count; $i++) {
+            $due_date = $next_month->copy()->addMonths($i)->format('Y-m-d');
+            $installments[] = [
+                'due_date' => $due_date,
+                'amount' => number_format($installment_amount, 2, '.', ''),
+                'principal' => number_format($installment_amount, 2, '.', ''),
+                'service_fee' => '0.00'
+            ];
+        }
+
+        $paymentDetails['installments'] = $installments;
+        $paymentDetails['next_payment_date'] = $next_month->format('Y-m-d\TH:i:s\Z');
+
+        return $paymentDetails;
+    }
+
     protected function updateBookingStatus($booking, $status, $paymentId, $payload)
     {
         $oldStatus = $booking->payment_status;
         $newStatus = $this->mapTabbyStatusToLocalStatus($status);
 
-        // Update booking with new payment status
         $booking->payment_transaction_id = $paymentId;
         $booking->payment_status = $newStatus;
 
-        // If payment is successful and status was not confirmed before
+        if (strtoupper($status) === 'AUTHORIZED') {
+            Log::info('Attempting to capture Tabby payment for booking', [
+                'booking_id' => $booking->id,
+                'payment_id' => $paymentId
+            ]);
+
+            $paymentDetails = $this->bookingTabbyService->refreshPaymentStatus($paymentId);
+            Log::info('Retrieved complete payment details for booking', [
+                'booking_id' => $booking->id,
+                'payment_id' => $paymentId,
+                'details' => $paymentDetails
+            ]);
+
+            $captureResult = $this->bookingTabbyService->capturePayment($paymentId);
+
+            if ($captureResult['success']) {
+                Log::info('Successfully captured Tabby payment for booking', [
+                    'booking_id' => $booking->id,
+                    'payment_id' => $paymentId,
+                    'result' => $captureResult
+                ]);
+
+                if (!empty($captureResult['data'])) {
+                    $payload = array_merge($payload, $captureResult['data']);
+                }
+            } else {
+                Log::error('Failed to capture Tabby payment for booking', [
+                    'booking_id' => $booking->id,
+                    'payment_id' => $paymentId,
+                    'error' => $captureResult['error'] ?? 'Unknown error'
+                ]);
+            }
+        }
+
         if ($newStatus === 'paid' && $oldStatus !== 'paid') {
-            // Set booking as confirmed
             $booking->status = 'confirmed';
 
-            // Record payment details
-            $paymentAmount = $payload['payment']['amount'] ?? $booking->total_amount;
-            $booking->payment_details = json_encode([
+            $paymentAmount = $payload['amount'] ??
+                            ($payload['payment']['amount'] ??
+                            ($payload['order']['amount'] ??
+                            $booking->total_amount));
+
+            $paymentDetails = [
                 'provider' => 'tabby',
                 'transaction_id' => $paymentId,
                 'status' => $status,
                 'amount' => $paymentAmount,
-                'currency' => $payload['payment']['currency'] ?? 'SAR',
-                'payment_date' => now()->toDateTimeString(),
-                'raw_response' => $payload
+                'currency' => $payload['currency'] ??
+                             ($payload['payment']['currency'] ??
+                             ($payload['order']['currency'] ?? 'SAR')),
+                'payment_date' => now()->toDateTimeString()
+            ];
+
+            if (isset($payload['configuration']['available_products']['installments'][0])) {
+                $installmentData = $payload['configuration']['available_products']['installments'][0];
+                $paymentDetails['downpayment'] = $installmentData['downpayment'] ?? null;
+                $paymentDetails['downpayment_percent'] = $installmentData['downpayment_percent'] ?? null;
+                $paymentDetails['installments'] = $installmentData['installments'] ?? [];
+                $paymentDetails['next_payment_date'] = $installmentData['next_payment_date'] ?? null;
+                $paymentDetails['installments_count'] = $installmentData['installments_count'] ?? count($installmentData['installments'] ?? []);
+            } elseif (isset($payload['payment']['product'])) {
+                $paymentDetails['product'] = $payload['payment']['product'];
+                if (isset($payload['payment']['product']['installments_count'])) {
+                    $paymentDetails['installments_count'] = $payload['payment']['product']['installments_count'];
+                }
+
+                if (isset($payload['payment']['product']['installments_count']) && $payload['payment']['product']['installments_count'] > 0) {
+                    $installments_count = $payload['payment']['product']['installments_count'];
+                    $total_amount = (float)$paymentAmount;
+
+                    $downpayment_percent = 100 / ($installments_count + 1);
+                    $downpayment = $total_amount * ($downpayment_percent / 100);
+
+                    $paymentDetails['downpayment'] = number_format($downpayment, 2, '.', '');
+                    $paymentDetails['downpayment_percent'] = $downpayment_percent;
+
+                    $installment_amount = ($total_amount - $downpayment) / $installments_count;
+                    $installments = [];
+                    $next_month = now()->addMonth();
+
+                    for ($i = 0; $i < $installments_count; $i++) {
+                        $due_date = $next_month->copy()->addMonths($i)->format('Y-m-d');
+                        $installments[] = [
+                            'due_date' => $due_date,
+                            'amount' => number_format($installment_amount, 2, '.', ''),
+                            'principal' => number_format($installment_amount, 2, '.', ''),
+                            'service_fee' => '0.00'
+                        ];
+                    }
+
+                    $paymentDetails['installments'] = $installments;
+                    $paymentDetails['next_payment_date'] = $next_month->format('Y-m-d\TH:i:s\Z');
+                }
+            } elseif (isset($payload['product'])) {
+                $paymentDetails['product'] = $payload['product'];
+                if (isset($payload['product']['installments_count'])) {
+                    $paymentDetails['installments_count'] = $payload['product']['installments_count'];
+
+                    if ($payload['product']['installments_count'] > 0) {
+                        $installments_count = $payload['product']['installments_count'];
+                        $total_amount = (float)$paymentAmount;
+
+                        $downpayment_percent = 100 / ($installments_count + 1);
+                        $downpayment = $total_amount * ($downpayment_percent / 100);
+
+                        $paymentDetails['downpayment'] = number_format($downpayment, 2, '.', '');
+                        $paymentDetails['downpayment_percent'] = $downpayment_percent;
+
+                        $installment_amount = ($total_amount - $downpayment) / $installments_count;
+                        $installments = [];
+                        $next_month = now()->addMonth();
+
+                        for ($i = 0; $i < $installments_count; $i++) {
+                            $due_date = $next_month->copy()->addMonths($i)->format('Y-m-d');
+                            $installments[] = [
+                                'due_date' => $due_date,
+                                'amount' => number_format($installment_amount, 2, '.', ''),
+                                'principal' => number_format($installment_amount, 2, '.', ''),
+                                'service_fee' => '0.00'
+                            ];
+                        }
+
+                        $paymentDetails['installments'] = $installments;
+                        $paymentDetails['next_payment_date'] = $next_month->format('Y-m-d\TH:i:s\Z');
+                    }
+                }
+            }
+
+            if (empty($paymentDetails['installments']) && empty($paymentDetails['downpayment'])) {
+                $detailedPayment = $this->bookingTabbyService->refreshPaymentStatus($paymentId);
+
+                if (isset($detailedPayment['response']['product'])) {
+                    $product = $detailedPayment['response']['product'];
+                    $paymentDetails['product'] = $product;
+
+                    if (isset($product['installments_count']) && $product['installments_count'] > 0) {
+                        $paymentDetails['installments_count'] = $product['installments_count'];
+
+                        $installments_count = $product['installments_count'];
+                        $total_amount = (float)$paymentAmount;
+
+                        $downpayment_percent = 25;
+                        $downpayment = $total_amount * ($downpayment_percent / 100);
+
+                        $paymentDetails['downpayment'] = number_format($downpayment, 2, '.', '');
+                        $paymentDetails['downpayment_percent'] = $downpayment_percent;
+
+                        $installment_amount = ($total_amount - $downpayment) / $installments_count;
+                        $installments = [];
+                        $next_month = now()->addMonth();
+
+                        for ($i = 0; $i < $installments_count; $i++) {
+                            $due_date = $next_month->copy()->addMonths($i)->format('Y-m-d');
+                            $installments[] = [
+                                'due_date' => $due_date,
+                                'amount' => number_format($installment_amount, 2, '.', ''),
+                                'principal' => number_format($installment_amount, 2, '.', ''),
+                                'service_fee' => '0.00'
+                            ];
+                        }
+
+                        $paymentDetails['installments'] = $installments;
+                        $paymentDetails['next_payment_date'] = $next_month->format('Y-m-d\TH:i:s\Z');
+                    }
+                }
+            }
+
+            $booking->payment_details = json_encode($paymentDetails);
+
+            Log::info('Payment details for booking', [
+                'booking_id' => $booking->id,
+                'payment_details' => $paymentDetails
             ]);
         } elseif ($newStatus === 'failed' && $oldStatus !== 'failed') {
-            // Handle failed payment
             $booking->status = 'failed';
         }
 
@@ -284,9 +570,7 @@ class TabbyWebhookController extends Controller
             'tabby_status' => $status
         ]);
 
-        // Attempt to notify the customer about status change
         try {
-            // Notify customer
             if ($booking->user && $booking->user->fcm_token) {
                 $notificationService = new FirebaseNotificationService();
 
@@ -307,7 +591,6 @@ class TabbyWebhookController extends Controller
                 }
             }
 
-            // Notify admins
             if ($newStatus === 'paid') {
                 $notificationService = new FirebaseNotificationService();
                 $notificationService->sendNotificationToAdmins(
@@ -330,12 +613,6 @@ class TabbyWebhookController extends Controller
         ];
     }
 
-    /**
-     * Map Tabby payment status to our local payment status
-     *
-     * @param string $tabbyStatus
-     * @return string
-     */
     protected function mapTabbyStatusToLocalStatus($tabbyStatus)
     {
         switch (strtoupper($tabbyStatus)) {

@@ -38,6 +38,20 @@ document.addEventListener('DOMContentLoaded', function() {
             packagesContainer.style.display = 'flex';
         }
 
+        // Add event listeners for any existing Tabi/Promo add-ons on page load
+        document.querySelectorAll('input[type="checkbox"][name^="tabby_"], input[type="checkbox"][name^="promo_"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                updateTotalPriceAndInstallment();
+            });
+        });
+
+        // Also add listeners for any other existing addon type inputs
+        document.querySelectorAll('input[type="checkbox"][name*="addon"]:not(.addon-checkbox), input[type="radio"][name*="addon"]').forEach(input => {
+            input.addEventListener('change', function() {
+                updateTotalPriceAndInstallment();
+            });
+        });
+
         function updateAvailableTimes(packageDuration) {
             const sessionTimeSelect = document.getElementById('sessionTime');
             const timeNote = document.getElementById('timeNote');
@@ -347,6 +361,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             updateTotalPriceAndInstallment();
                         });
                     });
+
+                    // Add event listeners for Tabi/Promo addons
+                    document.querySelectorAll('input[type="checkbox"][name^="tabby_"], input[type="checkbox"][name^="promo_"]').forEach(checkbox => {
+                        checkbox.addEventListener('change', function() {
+                            updateTotalPriceAndInstallment();
+                        });
+                    });
+
+                    // Also add listeners for any other addon type inputs that might be present
+                    document.querySelectorAll('input[type="checkbox"][name*="addon"], input[type="radio"][name*="addon"]').forEach(input => {
+                        input.addEventListener('change', function() {
+                            updateTotalPriceAndInstallment();
+                        });
+                    });
                 }, 100);
 
                 addonsSection.style.display = 'block';
@@ -498,18 +526,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
             let basePrice = parseFloat(selectedPackage.base_price);
             let totalPrice = basePrice;
+            let addonsTotal = 0;
 
+            // Regular addons
             document.querySelectorAll('.addon-checkbox:checked').forEach(checkbox => {
                 const addonId = checkbox.value;
-                const addon = selectedPackage.addons.find(a => a.id == addonId);
+                const addon = allAddons.find(a => a.id == addonId) ||
+                             (selectedPackage.addons && selectedPackage.addons.find(a => a.id == addonId));
                 if (addon) {
-                    totalPrice += parseFloat(addon.price);
+                    const addonPrice = parseFloat(addon.price);
+                    totalPrice += addonPrice;
+                    addonsTotal += addonPrice;
+                }
+            });
+
+            // Tabi and Promo addons
+            document.querySelectorAll('input[type="checkbox"][name^="tabby_"]:checked, input[type="checkbox"][name^="promo_"]:checked').forEach(checkbox => {
+                const priceElement = checkbox.closest('.form-check').querySelector('.badge');
+                if (priceElement) {
+                    const priceText = priceElement.textContent;
+                    const priceMatch = priceText.match(/\d+(\.\d+)?/);
+                    if (priceMatch && priceMatch[0]) {
+                        const addonPrice = parseFloat(priceMatch[0]);
+                        totalPrice += addonPrice;
+                        addonsTotal += addonPrice;
+                    }
+                }
+            });
+
+            // Any other addon inputs that might be present
+            document.querySelectorAll('input[type="checkbox"][name*="addon"]:checked:not(.addon-checkbox), input[type="radio"][name*="addon"]:checked').forEach(input => {
+                const priceElement = input.closest('.form-check, .card-body').querySelector('.badge');
+                if (priceElement) {
+                    const priceText = priceElement.textContent;
+                    const priceMatch = priceText.match(/\d+(\.\d+)?/);
+                    if (priceMatch && priceMatch[0]) {
+                        const addonPrice = parseFloat(priceMatch[0]);
+                        totalPrice += addonPrice;
+                        addonsTotal += addonPrice;
+                    }
                 }
             });
 
             window.packageData.price = totalPrice;
 
-            const priceUpdateEvent = new CustomEvent('priceUpdate', { detail: { price: totalPrice } });
+            // Dispatch a detailed price update event with all the information needed
+            const priceUpdateEvent = new CustomEvent('priceUpdate', {
+                detail: {
+                    price: totalPrice,
+                    basePrice: basePrice,
+                    addonsTotal: addonsTotal
+                }
+            });
             document.dispatchEvent(priceUpdateEvent);
 
             return totalPrice;

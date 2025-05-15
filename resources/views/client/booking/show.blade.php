@@ -365,6 +365,109 @@
                 </div>
             </div>
 
+            @if($booking->payment_details && $booking->payment_method == 'tabby')
+            <div class="mt-5">
+                <h5 class="text-primary mb-4"><i class="fas fa-credit-card me-2"></i> تفاصيل التقسيط عبر تابي</h5>
+                <div class="tabby-details p-3 bg-light rounded shadow-sm">
+                    @php
+                        $paymentDetails = json_decode($booking->payment_details, true);
+                        $hasInstallments = isset($paymentDetails['installments']) && !empty($paymentDetails['installments']);
+                        $downpayment = $paymentDetails['downpayment'] ?? null;
+                        $downpaymentPercent = $paymentDetails['downpayment_percent'] ?? null;
+                    @endphp
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            @if ($downpayment)
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-money-bill-wave me-2"></i> الدفعة المقدمة</h6>
+                                <p class="mb-0 fs-5">{{ $downpayment }} ريال سعودي <span class="text-muted">({{ $downpaymentPercent }}%)</span></p>
+                            </div>
+                            @endif
+
+                            @if (isset($paymentDetails['installments_count']))
+                            <div class="info-group bg-white p-3 rounded shadow-sm mt-3">
+                                <h6 class="text-primary"><i class="fas fa-list-ol me-2"></i> عدد الأقساط المتبقية</h6>
+                                <p class="mb-0 fs-5">{{ $paymentDetails['installments_count'] }} أقساط</p>
+                            </div>
+                            @endif
+                        </div>
+                        <div class="col-md-6">
+                            @if (isset($paymentDetails['next_payment_date']))
+                            <div class="info-group bg-white p-3 rounded shadow-sm">
+                                <h6 class="text-primary"><i class="fas fa-calendar-day me-2"></i> تاريخ الدفعة التالية</h6>
+                                <p class="mb-0 fs-5">{{ \Carbon\Carbon::parse($paymentDetails['next_payment_date'])->format('Y-m-d') }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if ($hasInstallments)
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-header bg-gradient bg-primary text-white">
+                            <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>جدول الأقساط</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover table-bordered mb-0">
+                                    <thead class="table-primary">
+                                        <tr>
+                                            <th class="text-center" style="width: 50px;">#</th>
+                                            <th class="text-center">تاريخ الاستحقاق</th>
+                                            <th class="text-center">القيمة</th>
+                                            <th class="text-center">الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- الدفعة المقدمة -->
+                                        @if ($downpayment)
+                                        <tr class="table-success">
+                                            <td class="text-center"><i class="fas fa-check-circle text-success"></i></td>
+                                            <td class="text-center fw-bold">{{ $booking->created_at->format('Y-m-d') }}</td>
+                                            <td class="text-center fw-bold">{{ $downpayment }} ريال سعودي</td>
+                                            <td class="text-center"><span class="badge bg-success"><i class="fas fa-check me-1"></i> تم الدفع</span></td>
+                                        </tr>
+                                        @endif
+
+                                        <!-- الأقساط المتبقية -->
+                                        @foreach($paymentDetails['installments'] as $index => $installment)
+                                        @php
+                                            $dueDate = \Carbon\Carbon::parse($installment['due_date']);
+                                            $isPaid = false; // يمكن تعديل هذا لاحقًا حسب معلومات الدفع المتوفرة
+                                            $isPending = $dueDate->isFuture();
+                                            $isDue = $dueDate->isPast() && !$isPaid;
+                                        @endphp
+                                        <tr class="{{ $isPaid ? 'table-success' : ($isDue ? 'table-danger' : '') }}">
+                                            <td class="text-center">{{ $index + 1 }}</td>
+                                            <td class="text-center">{{ $dueDate->format('Y-m-d') }}</td>
+                                            <td class="text-center fw-bold">{{ $installment['amount'] }} ريال سعودي</td>
+                                            <td class="text-center">
+                                                @if($isPaid)
+                                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i> تم الدفع</span>
+                                                @elseif($isDue)
+                                                    <span class="badge bg-danger"><i class="fas fa-exclamation-circle me-1"></i> متأخر</span>
+                                                @else
+                                                    <span class="badge bg-warning"><i class="fas fa-clock me-1"></i> قادم</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="table-primary">
+                                        <tr>
+                                            <td class="text-start" colspan="2"><strong>إجمالي المبلغ</strong></td>
+                                            <td class="text-center fw-bold text-primary" colspan="2">{{ $booking->total_amount }} ريال سعودي</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
             <!-- Actions -->
             <div class="actions mt-4">
                 <a href="{{ route('client.bookings.my') }}" class="btn btn-primary">

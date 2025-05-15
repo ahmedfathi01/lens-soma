@@ -357,42 +357,107 @@ class CheckoutController extends Controller
 
         $orderItems = [];
         foreach ($cart->items as $item) {
-            $appointment = Appointment::where('cart_item_id', $item->id)->first();
-            $orderItems[] = [
-                'product_id' => $item->product_id,
-                'quantity' => $item->quantity,
-                'unit_price' => $item->unit_price,
-                'subtotal' => $item->subtotal,
-                'appointment_id' => $appointment ? $appointment->id : null,
-                'color' => $item->color,
-                'size' => $item->size
-            ];
+          $appointment = Appointment::where('cart_item_id', $item->id)->first();
+          $orderItems[] = [
+            'product_id' => $item->product_id,
+            'quantity' => $item->quantity,
+            'unit_price' => $item->unit_price,
+            'subtotal' => $item->subtotal,
+            'appointment_id' => $appointment ? $appointment->id : null,
+            'color' => $item->color,
+            'size' => $item->size
+          ];
         }
 
+        // إنشاء الطلب مباشرة قبل إرسال الطلب إلى تابي
         $orderData = [
-            'user_id' => Auth::id(),
-            'total_amount' => floatval($totalAmount),
-            'subtotal' => floatval($cart->total_amount),
-            'discount_amount' => floatval($discountAmount),
-            'coupon_id' => $couponId,
-            'coupon_code' => $couponCode,
-            'shipping_address' => $validated['shipping_address'],
-            'phone' => $validated['phone'],
-            'payment_method' => $validated['payment_method'],
-            'notes' => $validated['notes'] ?? null,
-            'payment_id' => $paymentId,
-            'items' => $orderItems
+          'user_id' => Auth::id(),
+          'total_amount' => floatval($totalAmount),
+          'subtotal' => floatval($cart->total_amount),
+          'discount_amount' => floatval($discountAmount),
+          'coupon_id' => $couponId,
+          'coupon_code' => $couponCode,
+          'shipping_address' => $validated['shipping_address'],
+          'phone' => $validated['phone'],
+          'payment_method' => $validated['payment_method'],
+          'payment_status' => Order::PAYMENT_STATUS_PENDING,
+          'order_status' => Order::ORDER_STATUS_PENDING,
+          'notes' => $validated['notes'] ?? null,
+          'payment_id' => $paymentId,
+          'policy_agreement' => true,
+          'amount_paid' => 0
         ];
 
-        session(['pending_order' => $orderData]);
+        // إنشاء الطلب في قاعدة البيانات مباشرة
+        $order = Order::create($orderData);
 
-        $paymentResult = $this->paymentService->initiatePayment($orderData, floatval($totalAmount), Auth::user());
+        // إنشاء عناصر الطلب
+        foreach ($cart->items as $item) {
+          $appointment = Appointment::where('cart_item_id', $item->id)->first();
+
+          $orderItem = $order->items()->create([
+            'product_id' => $item->product_id,
+            'quantity' => $item->quantity,
+            'unit_price' => $item->unit_price,
+            'subtotal' => $item->subtotal,
+            'appointment_id' => $appointment ? $appointment->id : null,
+            'color' => $item->color,
+            'size' => $item->size
+          ]);
+
+          if ($appointment) {
+            $appointment->update([
+              'status' => Appointment::STATUS_PENDING,
+              'order_item_id' => $orderItem->id
+            ]);
+          }
+        }
+
+        // حفظ معلومات الطلب في الجلسة للاستخدام لاحقاً
+        $paymentRequestData = [
+          'user_id' => Auth::id(),
+          'payment_id' => $paymentId,
+          'total_amount' => floatval($totalAmount),
+          'subtotal' => floatval($cart->total_amount),
+          'discount_amount' => floatval($discountAmount),
+          'coupon_id' => $couponId,
+          'coupon_code' => $couponCode,
+          'shipping_address' => $validated['shipping_address'],
+          'phone' => $validated['phone'],
+          'payment_method' => $validated['payment_method'],
+          'notes' => $validated['notes'] ?? null,
+          'items' => $orderItems
+        ];
+
+        // تخزين معرف الطلب لاستخدامه لاحقاً
+        session(['pending_order_id' => $order->id]);
+        session(['pending_order' => $paymentRequestData]);
+
+        $paymentResult = $this->paymentService->initiatePayment($paymentRequestData, floatval($totalAmount), Auth::user());
 
         if ($paymentResult['success'] && !empty($paymentResult['redirect_url'])) {
-            session(['payment_transaction_id' => $paymentResult['transaction_id']]);
+          // حذف العناصر من السلة بعد إنشاء الطلب
+          $cart->items()->delete();
+          $cart->delete();
 
-            return redirect($paymentResult['redirect_url']);
+          // تسجيل استخدام الكوبون إذا تم استخدامه
+          if ($coupon) {
+            $coupon->recordUsageByUser(Auth::id(), $order);
+            session()->forget('coupon_code');
+          }
+
+          // تخزين معرف المعاملة في الجلسة
+          session(['payment_transaction_id' => $paymentResult['transaction_id']]);
+
+          // تحديث معرف المعاملة في سجل الطلب
+          $order->update(['payment_transaction_id' => $paymentResult['transaction_id']]);
+
+          // إعادة التوجيه إلى بوابة الدفع
+          return redirect($paymentResult['redirect_url']);
         }
+
+        // في حالة الفشل، حذف الطلب المنشأ
+        $order->delete();
 
         throw new CheckoutException('فشل الاتصال ببوابة الدفع: ' . ($paymentResult['message'] ?? 'خطأ غير معروف'));
       });
@@ -412,67 +477,67 @@ class CheckoutController extends Controller
   public function paymentCallback(Request $request)
   {
     try {
-        $paymentData = $this->paymentService->processPaymentResponse($request);
+      $paymentData = $this->paymentService->processPaymentResponse($request);
 
-        $orderData = session('pending_order');
-        if (!$orderData) {
-            return redirect()->route('checkout.index')
-                ->with('error', 'خطأ في الدفع - لم يتم العثور على بيانات الطلب');
-        }
+      // إذا كان هناك معرف طلب معلق في الجلسة، استخدمه للعثور على الطلب
+      $order = null;
+      $orderId = session('pending_order_id');
 
-        $existingOrder = $this->paymentService->findExistingOrder($paymentData);
+      if ($orderId) {
+        $order = Order::find($orderId);
+      }
 
-        if ($existingOrder) {
-            $this->paymentService->updateOrderPaymentStatus($existingOrder, $paymentData);
+      // إذا لم يتم العثور على الطلب من خلال معرف الجلسة، نحاول العثور عليه عن طريق معرف الدفع
+      if (!$order) {
+        $order = $this->paymentService->findExistingOrder($paymentData);
+      }
 
-            session()->forget(['pending_order', 'payment_transaction_id', 'coupon_code']);
+      if ($order) {
+        $this->paymentService->updateOrderPaymentStatus($order, $paymentData);
 
-            return redirect()->route('orders.show', $existingOrder)
-                ->with('success', 'تم تأكيد الدفع بنجاح!');
-        }
-
-        if (!$paymentData['isSuccessful'] && !$paymentData['isPending']) {
-            session()->forget(['pending_order', 'payment_transaction_id', 'coupon_code']);
-
-            return redirect()->route('checkout.index')
-                ->with('error', 'فشل الدفع: ' . ($paymentData['message'] ?: 'خطأ غير معروف'));
-        }
-
-        $order = $this->paymentService->createOrderFromPayment($orderData, $paymentData);
-
-        $cart = Cart::where('user_id', Auth::id())->first();
-        if ($cart) {
-            $cart->items()->delete();
-            $cart->delete();
-        }
-
-        // If there was a coupon, record its usage
-        if (!empty($orderData['coupon_id'])) {
-            $coupon = Coupon::find($orderData['coupon_id']);
-            if ($coupon) {
-                $coupon->recordUsageByUser(Auth::id(), $order);
-            }
-        }
-
-        session()->forget(['pending_order', 'payment_transaction_id', 'coupon_code']);
-
-        $order->user->notify(new OrderCreated($order));
-
-        $message = $paymentData['isSuccessful']
-            ? 'تم تأكيد الدفع وإنشاء الطلب بنجاح!'
-            : 'تم إنشاء الطلب، جارٍ التحقق من حالة الدفع...';
+        // مسح معلومات الجلسة بعد معالجة الدفع
+        session()->forget(['pending_order', 'pending_order_id', 'payment_transaction_id', 'coupon_code']);
 
         return redirect()->route('orders.show', $order)
-            ->with('success', $message);
+          ->with('success', 'تم تأكيد الدفع بنجاح!');
+      }
 
-    } catch (\Exception $e) {
-        Log::error('Error processing payment callback: ' . $e->getMessage(), [
-            'exception' => $e,
-            'request_data' => $request->all()
-        ]);
+      if (!$paymentData['isSuccessful'] && !$paymentData['isPending']) {
+        session()->forget(['pending_order', 'pending_order_id', 'payment_transaction_id', 'coupon_code']);
 
         return redirect()->route('checkout.index')
-            ->with('error', 'حدث خطأ أثناء معالجة الدفع. الرجاء الاتصال بالدعم الفني.');
+          ->with('error', 'فشل الدفع: ' . ($paymentData['message'] ?: 'خطأ غير معروف'));
+      }
+
+      // هذا القسم لن يتم تنفيذه عادة لأن الطلب تم إنشاؤه بالفعل
+      $orderData = session('pending_order');
+      if (!$orderData) {
+        return redirect()->route('checkout.index')
+          ->with('error', 'خطأ في الدفع - لم يتم العثور على بيانات الطلب');
+      }
+
+      $order = $this->paymentService->createOrderFromPayment($orderData, $paymentData);
+
+      // مسح معلومات الجلسة
+      session()->forget(['pending_order', 'pending_order_id', 'payment_transaction_id', 'coupon_code']);
+
+      $order->user->notify(new OrderCreated($order));
+
+      $message = $paymentData['isSuccessful']
+        ? 'تم تأكيد الدفع وإنشاء الطلب بنجاح!'
+        : 'تم إنشاء الطلب، جارٍ التحقق من حالة الدفع...';
+
+      return redirect()->route('orders.show', $order)
+        ->with('success', $message);
+
+    } catch (\Exception $e) {
+      Log::error('Error processing payment callback: ' . $e->getMessage(), [
+        'exception' => $e,
+        'request_data' => $request->all()
+      ]);
+
+      return redirect()->route('checkout.index')
+        ->with('error', 'حدث خطأ أثناء معالجة الدفع. الرجاء الاتصال بالدعم الفني.');
     }
   }
 

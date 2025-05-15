@@ -134,25 +134,69 @@ class PaymentService
     }
 
     /**
-     * البحث عن حجز موجود باستخدام معرف الدفع أو رقم المعاملة
+     * البحث عن حجز موجود باستخدام معرف الدفع أو رقم المعاملة أو معرف المرجع
      *
      * @param array $paymentData بيانات الدفع
      * @return Booking|null الحجز الموجود أو null
      */
     public function findExistingBooking(array $paymentData): ?Booking
     {
-        if (empty($paymentData['tranRef']) && empty($paymentData['paymentId'])) {
+        if (empty($paymentData['tranRef']) && empty($paymentData['paymentId']) && empty($paymentData['reference_id'])) {
+            Log::warning('No payment reference IDs found in payment data', [
+                'payment_data' => $paymentData
+            ]);
             return null;
         }
 
-        return Booking::where(function($query) use ($paymentData) {
-            if (!empty($paymentData['tranRef'])) {
-                $query->where('payment_transaction_id', $paymentData['tranRef']);
-            }
-            if (!empty($paymentData['paymentId'])) {
-                $query->orWhere('payment_id', $paymentData['paymentId']);
-            }
-        })->first();
+        $query = Booking::query();
+
+        // بناء استعلام مركب للبحث عن الحجز
+        if (!empty($paymentData['tranRef'])) {
+            Log::info('Searching for booking by transaction reference', [
+                'tranRef' => $paymentData['tranRef']
+            ]);
+            $query->where(function($q) use ($paymentData) {
+                $q->where('payment_transaction_id', $paymentData['tranRef'])
+                  ->orWhere('payment_id', $paymentData['tranRef']);
+            });
+        }
+
+        if (!empty($paymentData['paymentId'])) {
+            Log::info('Searching for booking by payment ID', [
+                'paymentId' => $paymentData['paymentId']
+            ]);
+            $query->orWhere(function($q) use ($paymentData) {
+                $q->where('payment_id', $paymentData['paymentId'])
+                  ->orWhere('payment_transaction_id', $paymentData['paymentId']);
+            });
+        }
+
+        if (!empty($paymentData['reference_id'])) {
+            Log::info('Searching for booking by reference ID', [
+                'reference_id' => $paymentData['reference_id']
+            ]);
+            $query->orWhere('payment_id', $paymentData['reference_id']);
+        }
+
+        // تنفيذ الاستعلام والحصول على النتيجة
+        $booking = $query->latest()->first();
+
+        if ($booking) {
+            Log::info('Found existing booking', [
+                'booking_id' => $booking->id,
+                'payment_id' => $booking->payment_id,
+                'payment_transaction_id' => $booking->payment_transaction_id
+            ]);
+        } else {
+            Log::warning('No booking found with payment references', [
+                'tranRef' => $paymentData['tranRef'] ?? null,
+                'paymentId' => $paymentData['paymentId'] ?? null,
+                'reference_id' => $paymentData['reference_id'] ?? null,
+                'query_sql' => $query->toSql()
+            ]);
+        }
+
+        return $booking;
     }
 
     /**
@@ -164,25 +208,63 @@ class PaymentService
      */
     public function updateBookingPaymentStatus(Booking $booking, array $paymentData): Booking
     {
+        // تحضير تفاصيل الدفع لحفظها
+        $paymentDetails = [
+            'provider' => 'tabby',
+            'transaction_id' => $paymentData['tranRef'] ?? null,
+            'status' => $paymentData['status'] ?? null,
+            'amount' => $paymentData['amount'] ?? $booking->total_amount,
+            'currency' => 'SAR',
+            'payment_date' => now()->toDateTimeString()
+        ];
+
+        // إضافة البيانات الإضافية من tabby إذا كانت متوفرة
+        if (!empty($paymentData['installments'])) {
+            $paymentDetails['installments'] = $paymentData['installments'];
+        }
+
+        if (!empty($paymentData['downpayment'])) {
+            $paymentDetails['downpayment'] = $paymentData['downpayment'];
+        }
+
+        if (!empty($paymentData['downpayment_percent'])) {
+            $paymentDetails['downpayment_percent'] = $paymentData['downpayment_percent'];
+        }
+
+        if (!empty($paymentData['next_payment_date'])) {
+            $paymentDetails['next_payment_date'] = $paymentData['next_payment_date'];
+        }
+
+        // تحديث الحجز مع تفاصيل الدفع المناسبة
         if ($paymentData['isSuccessful'] && $booking->status !== 'confirmed') {
             $booking->update([
                 'status' => 'confirmed',
-                'payment_status' => $paymentData['status'],
-                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id
+                'payment_status' => 'paid',
+                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         } elseif ($paymentData['isPending'] && $booking->status !== 'confirmed') {
             $booking->update([
                 'status' => 'pending',
-                'payment_status' => $paymentData['status'],
-                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id
+                'payment_status' => 'pending',
+                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         } elseif (!$paymentData['isSuccessful'] && !$paymentData['isPending']) {
             $booking->update([
                 'status' => 'failed',
-                'payment_status' => $paymentData['status'],
-                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id
+                'payment_status' => 'failed',
+                'payment_transaction_id' => $paymentData['tranRef'] ?? $booking->payment_transaction_id,
+                'payment_details' => json_encode($paymentDetails)
             ]);
         }
+
+        Log::info('Updated booking payment status with details', [
+            'booking_id' => $booking->id,
+            'status' => $booking->status,
+            'payment_status' => $booking->payment_status,
+            'payment_details' => $paymentDetails
+        ]);
 
         return $booking;
     }
@@ -199,12 +281,51 @@ class PaymentService
         $status = $paymentData['isSuccessful'] ? 'confirmed' :
                  ($paymentData['isPending'] ? 'pending' : 'failed');
 
+        // التأكد من حفظ المعرفات الصحيحة
+        // payment_id يجب أن يكون المعرف المرجعي المستخدم في نظامنا (PAY-XXXXX)
+        // payment_transaction_id يجب أن يكون معرف الدفع الخاص بتابي (05208274-xxxx)
+        $paymentId = $bookingData['payment_id'] ?? null;
+        $transactionId = $paymentData['tranRef'] ?? null;
+
+        Log::info('Creating booking from payment with IDs', [
+            'payment_id' => $paymentId,
+            'transaction_id' => $transactionId
+        ]);
+
+        // تحضير تفاصيل الدفع لحفظها
+        $paymentDetails = [
+            'provider' => 'tabby',
+            'transaction_id' => $transactionId,
+            'status' => $paymentData['status'] ?? ($paymentData['isSuccessful'] ? 'paid' : ($paymentData['isPending'] ? 'pending' : 'failed')),
+            'amount' => $paymentData['amount'] ?? ($bookingData['total_amount'] ?? 0),
+            'currency' => 'SAR',
+            'payment_date' => now()->toDateTimeString()
+        ];
+
+        // إضافة البيانات الإضافية من tabby إذا كانت متوفرة
+        if (!empty($paymentData['installments'])) {
+            $paymentDetails['installments'] = $paymentData['installments'];
+        }
+
+        if (!empty($paymentData['downpayment'])) {
+            $paymentDetails['downpayment'] = $paymentData['downpayment'];
+        }
+
+        if (!empty($paymentData['downpayment_percent'])) {
+            $paymentDetails['downpayment_percent'] = $paymentData['downpayment_percent'];
+        }
+
+        if (!empty($paymentData['next_payment_date'])) {
+            $paymentDetails['next_payment_date'] = $paymentData['next_payment_date'];
+        }
+
         $bookingParams = array_merge($bookingData, [
-            'payment_transaction_id' => $paymentData['tranRef'] ?? null,
-            'payment_id' => $paymentData['paymentId'] ?? $bookingData['payment_id'] ?? null,
-            'payment_status' => $paymentData['status'] ?? ($paymentData['isSuccessful'] ? 'success' : ($paymentData['isPending'] ? 'pending' : 'failed')),
+            'payment_transaction_id' => $transactionId,
+            'payment_id' => $paymentId,
+            'payment_status' => $paymentData['status'] ?? ($paymentData['isSuccessful'] ? 'paid' : ($paymentData['isPending'] ? 'pending' : 'failed')),
             'status' => $status,
-            'booking_date' => now()
+            'booking_date' => now(),
+            'payment_details' => json_encode($paymentDetails)
         ]);
 
         // إزالة البيانات غير المطلوبة
@@ -213,6 +334,13 @@ class PaymentService
 
         // إنشاء الحجز
         $booking = Booking::create($bookingParams);
+
+        Log::info('Created booking with payment details', [
+            'booking_id' => $booking->id,
+            'payment_id' => $booking->payment_id,
+            'transaction_id' => $booking->payment_transaction_id,
+            'status' => $booking->status
+        ]);
 
         // إضافة الإضافات
         if (!empty($addons)) {
@@ -244,8 +372,8 @@ class PaymentService
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Error recording coupon usage: ' . $e->getMessage(), [
                     'exception' => $e,
-                    'booking_id' => $booking->id,
-                    'coupon_id' => $bookingParams['coupon_id'] ?? null
+                    'trace' => $e->getTraceAsString(),
+                    'booking_id' => $booking->id
                 ]);
             }
         }

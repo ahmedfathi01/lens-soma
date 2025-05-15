@@ -40,8 +40,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // If no price found, try to get from selected package
+            // If no price found or price is 0, calculate from package and add-ons
             if (!price) {
+                // Get base package price
                 const selectedPackageRadio = document.querySelector('.package-select:checked');
                 if (selectedPackageRadio) {
                     const packageCard = selectedPackageRadio.closest('.package-card');
@@ -56,6 +57,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                 }
+
+                // Add price from selected add-ons
+                const selectedAddons = document.querySelectorAll('.addon-checkbox:checked');
+                selectedAddons.forEach(addon => {
+                    const addonCard = addon.closest('.card');
+                    if (addonCard) {
+                        const priceElement = addonCard.querySelector('.badge');
+                        if (priceElement) {
+                            const priceText = priceElement.textContent;
+                            const priceMatch = priceText.match(/(\d+(\.\d+)?)/);
+                            if (priceMatch && priceMatch[0]) {
+                                price += parseFloat(priceMatch[0]);
+                            }
+                        }
+                    }
+                });
             }
 
             // Update Tabby widget if we have a valid price
@@ -77,6 +94,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('click', function(e) {
             const packageRadio = e.target.closest('.package-select');
             if (packageRadio && tabbyRadio && tabbyRadio.checked) {
+                // Short delay to ensure price is updated in the DOM
+                setTimeout(updateTabbyFromCurrentPrice, 100);
+            }
+
+            // Also update on addon selection
+            const addonCheckbox = e.target.closest('.addon-checkbox');
+            if (addonCheckbox && tabbyRadio && tabbyRadio.checked) {
                 // Short delay to ensure price is updated in the DOM
                 setTimeout(updateTabbyFromCurrentPrice, 100);
             }

@@ -46,7 +46,8 @@ class Order extends Model
         'order_status',
         'notes',
         'policy_agreement',
-        'amount_paid'
+        'amount_paid',
+        'payment_details'
     ];
 
     protected $casts = [

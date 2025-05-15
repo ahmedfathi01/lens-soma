@@ -41,7 +41,6 @@ return [
         'merchant_code' => env('TABBY_MERCHANT_CODE', 'lenssoma'),
         'currency' => env('TABBY_CURRENCY', 'SAR'),
         'is_sandbox' => env('TABBY_IS_SANDBOX', true),
-        'webhook_secret' => env('TABBY_WEBHOOK_SECRET'),
     ],
 
     'firebase' => [

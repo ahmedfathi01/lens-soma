@@ -356,9 +356,19 @@ class BookingTabbyService
 
     public function extractPaymentData(Request $request): array
     {
-        $paymentId = $request->get('payment_id');
-        Log::info('Extracting booking payment data', ['payment_id' => $paymentId, 'request' => $request->all()]);
+        // يمكن أن يأتي payment_id إما من الـquery string أو من الـbody
+        $paymentId = $request->get('payment_id') ?? $request->input('id');
+        $merchantReferenceId = $request->get('merchant_reference_id') ??
+                               $request->input('order.reference_id') ??
+                               $request->input('payment.order.reference_id');
 
+        Log::info('Extracting booking payment data', [
+            'payment_id' => $paymentId,
+            'merchant_reference_id' => $merchantReferenceId,
+            'request' => $request->all()
+        ]);
+
+        // إذا لم نستطع العثور على معرف الدفع
         if (empty($paymentId)) {
             return [
                 'isSuccessful' => false,
@@ -370,10 +380,12 @@ class BookingTabbyService
             ];
         }
 
+        // في وضع الاختبار، لا نحتاج للتحقق من Tabby
         if (config('services.tabby.is_sandbox')) {
             return [
-                'tranRef' => $paymentId,
-                'paymentId' => $request->get('merchant_reference_id'),
+                'tranRef' => $paymentId, // الـtranRef هو معرف الدفع من tabby
+                'paymentId' => $merchantReferenceId, // الـpaymentId هو معرف الدفع الداخلي (PAY-XXXXX)
+                'reference_id' => $merchantReferenceId, // إضافة reference_id بشكل صريح
                 'amount' => 400,
                 'isPending' => false,
                 'isSuccessful' => true,
@@ -381,9 +393,11 @@ class BookingTabbyService
             ];
         }
 
+        // في البيئة الفعلية
         return [
-            'tranRef' => $paymentId,
-            'paymentId' => $request->get('merchant_reference_id'),
+            'tranRef' => $paymentId, // معرف المعاملة من Tabby
+            'paymentId' => $merchantReferenceId, // معرف الدفع الداخلي
+            'reference_id' => $merchantReferenceId, // إضافة reference_id بشكل صريح
             'amount' => 0,
             'isPending' => true,
             'isSuccessful' => false,
@@ -487,10 +501,25 @@ class BookingTabbyService
         try {
             Log::info('Capturing Booking Tabby payment', ['payment_id' => $paymentId]);
 
-            $payload = [];
-            if ($amount !== null) {
-                $payload['amount'] = $amount;
+            // التحقق أولاً من تفاصيل الدفع لمعرفة المبلغ الإجمالي إذا لم يتم تحديده
+            if ($amount === null) {
+                // الحصول على تفاصيل الدفع
+                $paymentDetails = $this->refreshPaymentStatus($paymentId);
+                if (isset($paymentDetails['amount']) && $paymentDetails['amount'] > 0) {
+                    $amount = (float) $paymentDetails['amount'];
+                } else {
+                    // إذا لم نستطع الحصول على المبلغ، نضع قيمة افتراضية
+                    $amount = 1.0; // المبلغ الافتراضي
+                }
             }
+
+            // تحضير البيانات المرسلة وفق المطلوب من Tabby API
+            $payload = [
+                'amount' => number_format($amount, 2, '.', ''), // تنسيق المبلغ بدقة رقمين عشريين
+                'reference_id' => 'booking-capture-' . $paymentId . '-' . time() // إضافة معرف مرجعي فريد للتتبع
+            ];
+
+            Log::info('Booking Tabby capture payload', ['payload' => $payload]);
 
             $response = Http::withToken($this->secretKey)
                 ->withHeaders([
@@ -524,7 +553,7 @@ class BookingTabbyService
             return [
                 'success' => false,
                 'error' => [
-                    'message' => 'Failed to capture payment: ' . ($responseData['message'] ?? 'Unknown error'),
+                    'message' => 'Failed to capture payment: ' . ($responseData['error'] ?? 'Unknown error'),
                     'details' => $responseData,
                     'status_code' => $statusCode
                 ]
@@ -610,24 +639,90 @@ class BookingTabbyService
 
             $amount = 0;
             $status = 'UNKNOWN';
+            $installmentDetails = null;
+            $productInfo = null;
 
-            // Extract status from checkout response
+            // استخراج المعلومات من استجابة checkout
             if (isset($responseData['payment']) && isset($responseData['payment']['status'])) {
                 $status = $responseData['payment']['status'];
                 if (isset($responseData['payment']['amount'])) {
                     $amount = $responseData['payment']['amount'];
                 }
+
+                // استخراج معلومات المنتج والأقساط من كائن payment
+                if (isset($responseData['payment']['product'])) {
+                    $productInfo = $responseData['payment']['product'];
+                }
             }
-            // Extract status from payment response
+            // استخراج المعلومات من استجابة payment
             else if (isset($responseData['status'])) {
                 $status = $responseData['status'];
                 if (isset($responseData['amount'])) {
                     $amount = $responseData['amount'];
                 }
+
+                // استخراج معلومات المنتج والأقساط من كائن الاستجابة الرئيسي
+                if (isset($responseData['product'])) {
+                    $productInfo = $responseData['product'];
+                }
+            }
+
+            // استخراج معلومات تفصيلية عن الأقساط من استجابة checkout
+            if (isset($responseData['configuration']) && isset($responseData['configuration']['available_products']) && isset($responseData['configuration']['available_products']['installments'])) {
+                $installmentDetails = $responseData['configuration']['available_products']['installments'][0] ?? null;
             }
 
             $isSuccessful = in_array($status, ['AUTHORIZED', 'CLOSED', 'CAPTURED', 'COMPLETED']);
             $isPending = in_array($status, ['CREATED', 'PENDING']);
+
+            // تجهيز المعلومات التفصيلية عن خطة التقسيط
+            $installmentPlan = [];
+
+            if ($installmentDetails) {
+                $installmentPlan = [
+                    'downpayment' => $installmentDetails['downpayment'] ?? null,
+                    'downpayment_percent' => $installmentDetails['downpayment_percent'] ?? null,
+                    'installments' => $installmentDetails['installments'] ?? [],
+                    'next_payment_date' => $installmentDetails['next_payment_date'] ?? null,
+                    'installments_count' => $installmentDetails['installments_count'] ?? count($installmentDetails['installments'] ?? []),
+                    'pay_per_installment' => $installmentDetails['pay_per_installment'] ?? null,
+                    'amount_to_pay' => $installmentDetails['amount_to_pay'] ?? null,
+                    'downpayment_total' => $installmentDetails['downpayment_total'] ?? null,
+                ];
+            } elseif ($productInfo && isset($productInfo['installments_count']) && $productInfo['installments_count'] > 0) {
+                // إذا لم تتوفر تفاصيل الأقساط، نحاول بناء خطة تقسيط تقريبية
+                $installments_count = $productInfo['installments_count'];
+                $total_amount = (float) $amount;
+
+                // نستخدم 25% كقيمة افتراضية للدفعة الأولى في نظام التقسيط على 4 دفعات
+                $downpayment_percent = $installments_count == 3 ? 25 : (100 / ($installments_count + 1));
+                $downpayment = $total_amount * ($downpayment_percent / 100);
+
+                $installment_amount = ($total_amount - $downpayment) / $installments_count;
+                $installments = [];
+                $next_month = now()->addMonth();
+
+                for ($i = 0; $i < $installments_count; $i++) {
+                    $due_date = $next_month->copy()->addMonths($i)->format('Y-m-d');
+                    $installments[] = [
+                        'due_date' => $due_date,
+                        'amount' => number_format($installment_amount, 2, '.', ''),
+                        'principal' => number_format($installment_amount, 2, '.', ''),
+                        'service_fee' => '0.00'
+                    ];
+                }
+
+                $installmentPlan = [
+                    'downpayment' => number_format($downpayment, 2, '.', ''),
+                    'downpayment_percent' => $downpayment_percent,
+                    'installments' => $installments,
+                    'next_payment_date' => $next_month->format('Y-m-d\TH:i:s\Z'),
+                    'installments_count' => $installments_count,
+                    'pay_per_installment' => number_format($installment_amount, 2, '.', ''),
+                    'amount_to_pay' => number_format($total_amount - $downpayment, 2, '.', ''),
+                    'downpayment_total' => number_format($downpayment, 2, '.', '')
+                ];
+            }
 
             return [
                 'isSuccessful' => $isSuccessful,
@@ -635,7 +730,9 @@ class BookingTabbyService
                 'status' => $status,
                 'amount' => $amount,
                 'message' => $isSuccessful ? 'Payment successful' : ($isPending ? 'Payment pending' : 'Payment failed: ' . $status),
-                'raw_response' => $responseData
+                'response' => $responseData,
+                'installment_plan' => $installmentPlan ?: null,
+                'product' => $productInfo
             ];
         } catch (\Exception $e) {
             Log::error('Exception in Booking Tabby payment status refresh', [

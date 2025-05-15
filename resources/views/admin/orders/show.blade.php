@@ -184,6 +184,151 @@
                             </div>
                         </div>
 
+                        <!-- تفاصيل التقسيط عبر تابي -->
+                        @if($order->payment_method == 'tabby' && $order->payment_details)
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-body">
+                                        <h5 class="card-title mb-4 d-flex align-items-center">
+                                            <span class="icon-circle bg-primary text-white me-2">
+                                                <i class="fas fa-credit-card"></i>
+                                            </span>
+                                            تفاصيل التقسيط عبر تابي
+                                        </h5>
+
+                                        @php
+                                            $paymentDetails = json_decode($order->payment_details, true);
+                                            $hasInstallments = isset($paymentDetails['installments']) && !empty($paymentDetails['installments']);
+                                            $downpayment = $paymentDetails['downpayment'] ?? null;
+                                            $downpaymentPercent = $paymentDetails['downpayment_percent'] ?? null;
+                                        @endphp
+
+                                        <div class="row mb-4">
+                                            <div class="col-md-3">
+                                                @if ($downpayment)
+                                                <div class="card border bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-title mb-3">
+                                                            <i class="fas fa-money-bill-wave text-primary me-1"></i>
+                                                            الدفعة المقدمة
+                                                        </h6>
+                                                        <h5 class="mb-2">{{ $downpayment }} ريال</h5>
+                                                        <span class="badge bg-info">{{ $downpaymentPercent }}%</span>
+                                                    </div>
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div class="col-md-3">
+                                                @if (isset($paymentDetails['installments_count']))
+                                                <div class="card border bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-title mb-3">
+                                                            <i class="fas fa-calculator text-primary me-1"></i>
+                                                            عدد الأقساط
+                                                        </h6>
+                                                        <h5 class="mb-0">{{ $paymentDetails['installments_count'] }}</h5>
+                                                    </div>
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div class="col-md-3">
+                                                @if (isset($paymentDetails['next_payment_date']))
+                                                <div class="card border bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-title mb-3">
+                                                            <i class="fas fa-calendar-day text-primary me-1"></i>
+                                                            موعد الدفعة التالية
+                                                        </h6>
+                                                        <h5 class="mb-0">{{ \Carbon\Carbon::parse($paymentDetails['next_payment_date'])->format('Y/m/d') }}</h5>
+                                                    </div>
+                                                </div>
+                                                @endif
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="card border bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h6 class="card-title mb-3">
+                                                            <i class="fas fa-coins text-primary me-1"></i>
+                                                            إجمالي المبلغ
+                                                        </h6>
+                                                        <h5 class="mb-0">{{ $order->total_amount }} ريال</h5>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        @if ($hasInstallments)
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-striped table-hover">
+                                                <thead class="table-primary">
+                                                    <tr>
+                                                        <th style="width: 60px;" class="text-center">#</th>
+                                                        <th class="text-center">تاريخ الاستحقاق</th>
+                                                        <th class="text-center">المبلغ</th>
+                                                        <th class="text-center">الحالة</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <!-- صف الدفعة المقدمة -->
+                                                    @if ($downpayment)
+                                                    <tr class="table-success">
+                                                        <td class="text-center"><i class="fas fa-check-circle text-success"></i></td>
+                                                        <td class="text-center">{{ $order->created_at->format('Y-m-d') }}</td>
+                                                        <td class="text-center">{{ $downpayment }} ريال</td>
+                                                        <td class="text-center">
+                                                            <span class="badge bg-success">
+                                                                <i class="fas fa-check me-1"></i> تم الدفع
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                    @endif
+
+                                                    <!-- صفوف الأقساط -->
+                                                    @foreach($paymentDetails['installments'] as $index => $installment)
+                                                    @php
+                                                        $dueDate = \Carbon\Carbon::parse($installment['due_date']);
+                                                        $isPaid = false; // يمكنك تعديل هذا لاحقًا بناءً على بيانات الدفع الفعلية
+                                                        $isDue = $dueDate->isPast() && !$isPaid;
+                                                        $isPending = $dueDate->isFuture();
+                                                    @endphp
+                                                    <tr class="{{ $isPaid ? 'table-success' : ($isDue ? 'table-danger' : '') }}">
+                                                        <td class="text-center">{{ $index + 1 }}</td>
+                                                        <td class="text-center">{{ $dueDate->format('Y-m-d') }}</td>
+                                                        <td class="text-center">{{ $installment['amount'] }} ريال</td>
+                                                        <td class="text-center">
+                                                            @if($isPaid)
+                                                                <span class="badge bg-success">
+                                                                    <i class="fas fa-check me-1"></i> تم الدفع
+                                                                </span>
+                                                            @elseif($isDue)
+                                                                <span class="badge bg-danger">
+                                                                    <i class="fas fa-exclamation-circle me-1"></i> متأخر
+                                                                </span>
+                                                            @else
+                                                                <span class="badge bg-warning">
+                                                                    <i class="fas fa-clock me-1"></i> قيد الانتظار
+                                                                </span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                                <tfoot class="table-primary">
+                                                    <tr>
+                                                        <td class="text-start fw-bold" colspan="2">إجمالي المبلغ</td>
+                                                        <td class="text-center fw-bold" colspan="2">{{ $order->total_amount }} ريال</td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                         <!-- Order Details -->
                         <div class="row g-4">
                             <!-- Order Info -->
